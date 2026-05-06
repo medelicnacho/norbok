@@ -2,9 +2,12 @@ import signal
 import ollama
 from .chat import chat, check_ollama_env
 from .ui import print_welcome, get_input, print_token, print_reply, console
+from .models import pick_model
 
 def run():
     check_ollama_env()
+    model = pick_model()
+    console.print(f"[bold green]Using model: {model}[/bold green]")
     client = ollama.Client(host="http://localhost:11434")
 
     stop_generation = False
@@ -40,7 +43,7 @@ def run():
             break
         messages.append({"role": "user", "content": user_input})
         console.print("[bold green]Norbok:[/bold green] ")
-        reply = chat(client, messages, on_token=print_token, check_stop=lambda: stop_generation)
+        reply = chat(client, messages, model, on_token=print_token, check_stop=lambda: stop_generation)
         print()
         print_reply(reply)
         messages.append({"role": "assistant", "content": reply})
