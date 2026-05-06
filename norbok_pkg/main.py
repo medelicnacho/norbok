@@ -59,9 +59,8 @@ def run():
             continue
 
         messages.append({"role": "user", "content": user_input})
-        console.print("[bold green]Norbok:[/bold green] ")
-        reply = chat(client, messages, model, on_token=print_token, check_stop=lambda: stop_generation)
-        print()
+        console.print(f"[bold green]Norbok ({model.split('/')[-1]}):[/bold green] thinking...")
+        reply = chat(client, messages, model, on_token=lambda _: None, check_stop=lambda: stop_generation)
         print_reply(reply)
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
