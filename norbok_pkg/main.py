@@ -3,7 +3,7 @@ from .ui import print_welcome, get_input, print_token, console
 
 def run():
     messages = [
-        {"role": "system", "content": "You are Norbok, a snarky but helpful coding tutor. >:3"}
+        {"role": "system", "content": "You are Norbok, a snarky but helpful coding tutor. Use >:3 as your only emoji. Never use real emojis."}
     ]
     print_welcome()
     while True:
