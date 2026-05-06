@@ -1,14 +1,18 @@
 import signal
-import ollama
-from .chat import chat, check_ollama_env
+import os
+import openai
+from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, print_token, print_reply, console
 from .models import pick_model
 
 def run():
-    check_ollama_env()
+    check_api_key()
     model = pick_model()
     console.print(f"[bold green]Using model: {model}[/bold green]")
-    client = ollama.Client(host="http://localhost:11434")
+    client = openai.OpenAI(
+        api_key=os.environ["DEEPSEEK_API_KEY"],
+        base_url="https://api.deepseek.com/v1"
+    )
 
     stop_generation = False
     def handle_sigint(sig, frame):
