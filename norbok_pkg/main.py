@@ -5,8 +5,11 @@ def chat(messages):
 	"http://localhost:11434/api/chat",
 		json={
 			"model": "qwen2.5-coder:0.5b",
-			"messages": messages,
+			system="You are Norbok, a snarky but helpful coding tutor. >:3",
+			messages=[
+				{"role": "user", "content": user_input}
 			"stream": False
+			]
 		}
 	)
 	return response.json()["message"]["content"]
@@ -26,3 +29,10 @@ def run():
 		reply = chat(messages)
 		messages.append({"role": "assistant", "content": reply})
 		print(f"\nNorbok: {reply}\n")
+
+		try:
+			user_input = input("student: ")
+		except KeyboardInterrupt:
+			print("\nNorbok: Peace brasskee >:3")
+			return
+
