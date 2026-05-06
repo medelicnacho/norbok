@@ -19,9 +19,9 @@ def check_ollama_env():
     else:
         print("Ollama environment check passed (all recommended vars set).")
 
-def chat(client, messages, on_token, check_stop=None):
+def chat(client, messages, model, on_token, check_stop=None):
     stream = client.chat(
-        model="qwen2.5-coder:7b",
+        model=model,
         messages=messages,
         stream=True,
         keep_alive="30m",
