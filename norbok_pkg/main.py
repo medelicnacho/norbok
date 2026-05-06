@@ -52,33 +52,47 @@ def run():
             console.print("\n[bold green]Peace brasskee >:3[/bold green]")
             break
 
-        user_stripped = user_input.strip().lower()
+        raw = user_input.strip()
 
-        if user_stripped in ("exit", "quit"):
+        # Slash‑commands always start with '/'
+        if raw.startswith("/"):
+            command = raw[1:].lower()   # strip the '/' and normalise case
+
+            if command in ("exit", "quit"):
+                console.print("[bold green]peace bro >:3[/bold green]")
+                break
+
+            if command == "switch":
+                model = pick_model()
+                use_thinking = "pro" in model
+                console.print(
+                    f"[bold green]Switched to {model} "
+                    f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+                )
+                continue
+
+            if command == "think":
+                use_thinking = True
+                console.print("[bold magenta]Thinking mode ON >:3[/bold magenta]")
+                continue
+
+            if command == "nothink":
+                use_thinking = False
+                console.print("[bold green]Thinking mode OFF >:3[/bold green]")
+                continue
+
+            # Unknown slash‑command – just warn and ignore
+            console.print(f"[red]Unknown command: /{command}[/red]")
+            continue
+
+        # Backward‑compatible plain “exit” / “quit” (no slash)
+        lower_raw = raw.lower()
+        if lower_raw in ("exit", "quit"):
             console.print("[bold green]peace bro >:3[/bold green]")
             break
 
-        if user_stripped == "switch":
-            model = pick_model()
-            use_thinking = "pro" in model
-            console.print(
-                f"[bold green]Switched to {model} "
-                f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
-            )
-            continue
-
-        if user_stripped == "think":
-            use_thinking = True
-            console.print("[bold magenta]Thinking mode ON >:3[/bold magenta]")
-            continue
-
-        if user_stripped == "nothink":
-            use_thinking = False
-            console.print("[bold green]Thinking mode OFF >:3[/bold green]")
-            continue
-
         # Regular message handling
-        messages.append({"role": "user", "content": user_input})
+        messages.append({"role": "user", "content": raw})
 
         renderer = StreamRenderer(model_name=model.split("/")[-1])
         reply = chat(
