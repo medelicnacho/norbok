@@ -4,7 +4,7 @@ def chat(messages):
 	response = requests.post(
 		"http://localhost:11434/api/chat",
 		json={
-			"model": "qwen2.5-coder:0.5b",
+			"model": "qwen2.5-coder:7b",
 			"system": "You are Norbok, a snarky but helpful coding tutor. >:3",
 			"messages": messages,
 			"stream": False
