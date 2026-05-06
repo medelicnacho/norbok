@@ -9,7 +9,12 @@ from .models import pick_model
 def run():
     check_api_key()
     model = pick_model()
-    console.print(f"[bold green]Using model: {model}[/bold green]")
+    use_thinking = "pro" in model
+    console.print(
+        f"[bold green]Using model: {model} "
+        f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+    )
+
     client = openai.OpenAI(
         api_key=os.environ["DEEPSEEK_API_KEY"],
         base_url="https://api.deepseek.com/v1",
@@ -67,20 +72,32 @@ def run():
             console.print("\n[bold green]Peace brasskee >:3[/bold green]")
             break
 
-        if user_input.strip().lower() in ("exit", "quit"):
+        user_stripped = user_input.strip().lower()
+
+        if user_stripped in ("exit", "quit"):
             console.print("[bold green]peace bro >:3[/bold green]")
             break
 
-        if user_input.strip().lower() == "switch":
+        if user_stripped == "switch":
             model = pick_model()
-            console.print(f"[bold green]Switched to {model} >:3[/bold green]")
+            use_thinking = "pro" in model
+            console.print(
+                f"[bold green]Switched to {model} "
+                f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+            )
             continue
 
-        use_thinking = False
-        if user_input.startswith("/think "):
+        if user_stripped == "think":
             use_thinking = True
-            user_input = user_input[len("/think "):].strip()
+            console.print("[bold magenta]Thinking mode ON >:3[/bold magenta]")
+            continue
 
+        if user_stripped == "nothink":
+            use_thinking = False
+            console.print("[bold green]Thinking mode OFF >:3[/bold green]")
+            continue
+
+        # Regular message handling
         messages.append({"role": "user", "content": user_input})
 
         renderer = StreamRenderer(model_name=model.split("/")[-1])
