@@ -36,11 +36,18 @@ def run():
         try:
             user_input = get_input()
         except (EOFError, KeyboardInterrupt):
-            console.print("\nPeace brasskee >:3")
+            console.print("\n[bold green]Peace brasskee >:3[/bold green]")
             break
-        if user_input.strip().lower() == "exit":
-            console.print("peace bro >:3")
+
+        if user_input.strip().lower() in ("exit", "quit"):
+            console.print("[bold green]peace bro >:3[/bold green]")
             break
+
+        if user_input.strip().lower() == "switch":
+            model = pick_model()
+            console.print(f"[bold green]Switched to {model} >:3[/bold green]")
+            continue
+
         messages.append({"role": "user", "content": user_input})
         console.print("[bold green]Norbok:[/bold green] ")
         reply = chat(client, messages, model, on_token=print_token, check_stop=lambda: stop_generation)
