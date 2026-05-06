@@ -19,7 +19,7 @@ def check_ollama_env():
     else:
         print("Ollama environment check passed (all recommended vars set).")
 
-def chat(session, messages, on_token):
+def chat(session, messages, on_token, check_stop=None):
     r = session.post(
         "http://localhost:11434/api/chat",
         json={
@@ -42,6 +42,9 @@ def chat(session, messages, on_token):
     )
     full_reply = ""
     for line in r.iter_lines():
+        if check_stop and check_stop():
+            r.close()
+            break
         if line:
             chunk = line.decode("utf-8")
             data = json.loads(chunk)
