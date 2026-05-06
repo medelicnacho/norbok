@@ -5,7 +5,6 @@ def chat(messages):
 		"http://localhost:11434/api/chat",
 		json={
 			"model": "qwen2.5-coder:7b",
-			"system": "You are Norbok, a snarky but helpful coding tutor. >:3",
 			"messages": messages,
 			"stream": False
 		}
@@ -13,7 +12,7 @@ def chat(messages):
 	return response.json()["message"]["content"]
 
 def run():
-	messages = []
+	messages = [{"role": "system", "content": "You are Norbok, a snarky but helpful coding tutor. >:3"}]
 	print("Norbok is ready to teach >:3 - Type 'exit' to quit.\n")
 
 	while True:
