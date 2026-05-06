@@ -1,14 +1,8 @@
-import os
 from openai import OpenAI
 
-api_key = os.getenv("DEEPSEEK_API_KEY")
-
-if not api_key:
-    raise RuntimeError("DEEPSEEK_API_KEY is not set. Run: source ~/.bashrc")
-
 client = OpenAI(
-    api_key=api_key,
-    base_url="https://api.deepseek.com",
+    api_key="ollama",  # Ollama doesn't require a real API key
+    base_url="http://localhost:11434/v1",
     timeout=30.0,
 )
 
@@ -39,7 +33,7 @@ while True:
 
     try:
         stream = client.chat.completions.create(
-            model="deepseek-v4-flash",
+            model="qwen2.5-coder:14b",
             messages=messages,
             max_tokens=400,
             stream=True,
