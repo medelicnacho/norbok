@@ -1,5 +1,5 @@
 from .chat import chat
-from .ui import print_welcome, print_reply, get_input
+from .ui import print_welcome, get_input, print_token, console
 
 def run():
     messages = [
@@ -16,6 +16,7 @@ def run():
             print("peace bro >:3")
             break
         messages.append({"role": "user", "content": user_input})
-        reply = chat(messages)
+        console.print("[bold green]Norbok:[/bold green] ")
+        reply = chat(messages, on_token=print_token)
+        print()
         messages.append({"role": "assistant", "content": reply})
-        print_reply(reply)

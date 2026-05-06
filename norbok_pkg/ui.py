@@ -10,5 +10,8 @@ def print_welcome():
 def print_reply(reply):
     console.print(Panel(Markdown(reply), title="Norbok", border_style="green"))
 
+def print_token(token):
+    console.print(token, end="", highlight=False)
+
 def get_input():
     return console.input("[bold green]student:[/bold green] ")
