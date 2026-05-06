@@ -5,6 +5,9 @@ import sys
 
 console = Console()
 
+_stdout_write = sys.stdout.write
+_stdout_flush = sys.stdout.flush
+
 def print_welcome():
     console.print(Panel("Norbok is ready to teach >:3", border_style="green"))
 
@@ -12,8 +15,9 @@ def print_reply(reply):
     console.print(Panel(Markdown(reply), title="Norbok", border_style="green"))
 
 def print_token(token):
-    sys.stdout.write(token)
-    sys.stdout.flush()
+    _stdout_write(token)
+    if token and token[-1] in " \n\t":
+        _stdout_flush()
 
 def get_input():
     return console.input("[bold green]student:[/bold green] ")

@@ -1,6 +1,6 @@
 import requests
 from .chat import chat, check_ollama_env
-from .ui import print_welcome, get_input, print_token, console
+from .ui import print_welcome, get_input, print_token, print_reply, console
 
 def run():
     check_ollama_env()
@@ -22,4 +22,5 @@ def run():
         console.print("[bold green]Norbok:[/bold green] ")
         reply = chat(session, messages, on_token=print_token)
         print()
+        print_reply(reply)
         messages.append({"role": "assistant", "content": reply})
