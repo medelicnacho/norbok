@@ -3,16 +3,13 @@ from openai import OpenAI
 client = OpenAI(
     api_key="ollama",  # Ollama doesn't require a real API key
     base_url="http://localhost:11434/v1",
-    timeout=120.0,  # Increased timeout for initial model loading
+    timeout=60.0,  # Reduced timeout for faster failure
 )
 
 messages = [
     {
         "role": "system",
-        "content": (
-            "You are a strict but helpful Python tutor. "
-            "Explain clearly. Keep answers short unless asked for detail."
-        ),
+        "content": "Python tutor. Be concise.",
     }
 ]
 
@@ -35,13 +32,15 @@ while True:
         stream = client.chat.completions.create(
             model="qwen2.5-coder:14b",
             messages=messages,
-            max_tokens=400,
+            max_tokens=200,  # Reduced for faster responses
             stream=True,
-            temperature=0.7,  # Lower = faster, more focused responses
+            temperature=0.3,  # Lower = faster generation
+            top_p=0.9,  # Nucleus sampling for speed
             extra_body={
-                "num_ctx": 2048,  # Smaller context = faster processing
-                "keep_alive": "30m",  # Keep model loaded for 30 minutes
-                "num_predict": 400,  # Max tokens to generate
+                "num_ctx": 1024,  # Minimum context for speed
+                "keep_alive": "30m",  # Keep model loaded
+                "num_predict": 200,  # Match max_tokens
+                "repeat_penalty": 1.1,  # Faster by avoiding repetition
             },
         )
 
