@@ -22,10 +22,10 @@ def run():
         try:
             user_input = get_input()
         except (EOFError, KeyboardInterrupt):
-            print("\nPeace brasskee >:3")
+            console.print("\nPeace brasskee >:3")
             break
         if user_input.strip().lower() == "exit":
-            print("peace bro >:3")
+            console.print("peace bro >:3")
             break
         messages.append({"role": "user", "content": user_input})
         console.print("[bold green]Norbok:[/bold green] ")
