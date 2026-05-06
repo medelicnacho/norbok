@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.lagacy:build"
+
+[project]
+name = "norbok"
+version = "0.1.0"
+requires-python = ">3.9"
+dependencies = ["requests"]
+
+[project.scripts]
+norbok = "norbo_pkg.main:run"
