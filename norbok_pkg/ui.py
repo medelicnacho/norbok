@@ -1,7 +1,18 @@
 from rich.console import Console
 from rich.panel import Panel
+from prompt_toolkit import prompt as ptk_prompt
+from prompt_toolkit.styles import Style
+from prompt_toolkit.formatted_text import HTML
 
 console = Console()
+
+
+PTK_STYLE = Style([
+    ("bold", "bold ansigreen"),
+    ("placeholder", "#555555"),
+])
+
+COMMANDS = "/think  /nothink  /switch  /exit"
 
 
 class StreamRenderer:
@@ -36,4 +47,8 @@ def print_welcome():
 
 
 def get_input():
-    return console.input("[bold green]student:[/bold green] ")
+    return ptk_prompt(
+        message=[("class:bold", "student: ")],
+        style=PTK_STYLE,
+        placeholder=[("class:placeholder", COMMANDS)],
+    )
