@@ -2,8 +2,9 @@ import signal
 import os
 import openai
 from .chat import chat, check_api_key
-from .ui import print_welcome, get_input, print_token, print_reply, console
+from .ui import print_welcome, get_input, StreamRenderer, console
 from .models import pick_model
+
 
 def run():
     check_api_key()
@@ -11,10 +12,11 @@ def run():
     console.print(f"[bold green]Using model: {model}[/bold green]")
     client = openai.OpenAI(
         api_key=os.environ["DEEPSEEK_API_KEY"],
-        base_url="https://api.deepseek.com/v1"
+        base_url="https://api.deepseek.com/v1",
     )
 
     stop_generation = False
+
     def handle_sigint(sig, frame):
         nonlocal stop_generation
         stop_generation = True
@@ -53,10 +55,11 @@ def run():
 
                 "NEVER repeat the same architecture bullets twice. "
                 "NEVER ask the user to design their own app — you are the expert, make decisions and explain them. "
-            )
+            ),
         }
     ]
     print_welcome()
+
     while True:
         try:
             user_input = get_input()
@@ -73,10 +76,24 @@ def run():
             console.print(f"[bold green]Switched to {model} >:3[/bold green]")
             continue
 
+        use_thinking = False
+        if user_input.startswith("/think "):
+            use_thinking = True
+            user_input = user_input[len("/think "):].strip()
+
         messages.append({"role": "user", "content": user_input})
-        console.print(f"[bold green]Norbok ({model.split('/')[-1]}):[/bold green] thinking...")
-        reply = chat(client, messages, model, on_token=lambda _: None, check_stop=lambda: stop_generation)
-        print_reply(reply)
+
+        renderer = StreamRenderer(model_name=model.split("/")[-1])
+        reply = chat(
+            client,
+            messages,
+            model,
+            on_token=renderer.answer,
+            on_thinking=renderer.thinking,
+            check_stop=lambda: stop_generation,
+            thinking=use_thinking,
+        )
+        renderer.end()
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
 
