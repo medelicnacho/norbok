@@ -16,19 +16,7 @@ messages = [
     }
 ]
 
-# Warmup: preload the model into memory
-print("Loading model...", flush=True)
-try:
-    warmup = client.chat.completions.create(
-        model="qwen2.5-coder:14b",
-        messages=[{"role": "user", "content": "Hi"}],
-        max_tokens=5,
-        stream=False,
-    )
-    print("Model loaded. Chat ready. Type 'exit' to quit.")
-except Exception as e:
-    print(f"Warning: Could not preload model: {e}")
-    print("Chat ready. Type 'exit' to quit.")
+print("Chat ready. Type 'exit' to quit.")
 
 while True:
     user_msg = input("\nYou: ").strip()
@@ -49,9 +37,11 @@ while True:
             messages=messages,
             max_tokens=400,
             stream=True,
+            temperature=0.7,  # Lower = faster, more focused responses
             extra_body={
-                "num_ctx": 4096,  # Context window size
-                "keep_alive": "5m",  # Keep model in memory for 5 minutes
+                "num_ctx": 2048,  # Smaller context = faster processing
+                "keep_alive": "30m",  # Keep model loaded for 30 minutes
+                "num_predict": 400,  # Max tokens to generate
             },
         )
 
