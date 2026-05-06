@@ -1,5 +1,5 @@
-import os, requests
-import json
+import os
+import ollama
 
 RECOMMENDED_ENV = {
     "OLLAMA_FLASH_ATTENTION": "1",
@@ -19,36 +19,27 @@ def check_ollama_env():
     else:
         print("Ollama environment check passed (all recommended vars set).")
 
-def chat(session, messages, on_token, check_stop=None):
-    r = session.post(
-        "http://localhost:11434/api/chat",
-        json={
-            "model": "qwen2.5-coder:7b",
-            "messages": messages,
-            "stream": True,
-            "keep_alive": "30m",
-            "options": {
-                "num_ctx": 8192,
-                "num_predict": 1024,
-                "num_thread": max(1, (os.cpu_count() or 4) // 2),
-                "num_batch": 256,
-                "low_vram": False,
-                "temperature": 0.7,
-                "repeat_penalty": 1.1,
-            },
-        },
+def chat(client, messages, on_token, check_stop=None):
+    stream = client.chat(
+        model="qwen2.5-coder:7b",
+        messages=messages,
         stream=True,
-        timeout=(5, None),
+        keep_alive="30m",
+        options={
+            "num_ctx": 8192,
+            "num_predict": 1024,
+            "num_thread": max(1, (os.cpu_count() or 4) // 2),
+            "num_batch": 256,
+            "low_vram": False,
+            "temperature": 0.7,
+            "repeat_penalty": 1.1,
+        },
     )
-    full_reply = ""
-    for line in r.iter_lines():
+    full = []
+    for chunk in stream:
         if check_stop and check_stop():
-            r.close()
             break
-        if line:
-            chunk = line.decode("utf-8")
-            data = json.loads(chunk)
-            token = data.get("message", {}).get("content", "")
-            full_reply += token
-            on_token(token)
-    return full_reply
+        token = chunk["message"]["content"]
+        full.append(token)
+        on_token(token)
+    return "".join(full)

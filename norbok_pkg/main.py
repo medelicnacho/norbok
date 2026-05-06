@@ -1,13 +1,11 @@
-import requests
 import signal
+import ollama
 from .chat import chat, check_ollama_env
 from .ui import print_welcome, get_input, print_token, print_reply, console
 
 def run():
     check_ollama_env()
-    session = requests.Session()
-    # adapter with keep-alive and no retries (fail fast on a streaming endpoint)
-    session.mount("http://", requests.adapters.HTTPAdapter(pool_connections=1, pool_maxsize=1))
+    client = ollama.Client(host="http://localhost:11434")
 
     stop_generation = False
     def handle_sigint(sig, frame):
@@ -31,7 +29,7 @@ def run():
             break
         messages.append({"role": "user", "content": user_input})
         console.print("[bold green]Norbok:[/bold green] ")
-        reply = chat(session, messages, on_token=print_token, check_stop=lambda: stop_generation)
+        reply = chat(client, messages, on_token=print_token, check_stop=lambda: stop_generation)
         print()
         print_reply(reply)
         messages.append({"role": "assistant", "content": reply})
