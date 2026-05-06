@@ -1,17 +1,32 @@
+import httpx
+import requests
 from openai import OpenAI
 
-client = OpenAI(
-    api_key="ollama",  # Ollama doesn't require a real API key
-    base_url="http://localhost:11434/v1",
-    timeout=60.0,  # Reduced timeout for faster failure
+# Preload model into memory via Ollama API (no generation, just load weights)
+try:
+    requests.post(
+        "http://localhost:11434/api/generate",
+        json={"model": "qwen2.5-coder:7b", "prompt": "", "keep_alive": "30m"},
+        timeout=120,
+    )
+except Exception:
+    pass
+
+http_client = httpx.Client(
+    limits=httpx.Limits(max_connections=1, max_keepalive_connections=1),
+    timeout=60.0,
 )
 
-messages = [
-    {
-        "role": "system",
-        "content": "Python tutor. Be concise.",
-    }
-]
+client = OpenAI(
+    api_key="ollama",
+    base_url="http://localhost:11434/v1",
+    http_client=http_client,
+)
+
+MAX_HISTORY = 6  # Keep conversation short for speed
+
+system_msg = {"role": "system", "content": "Python tutor. Be concise."}
+messages = [system_msg]
 
 print("Chat ready. Type 'exit' to quit.")
 
@@ -26,21 +41,26 @@ while True:
 
     messages.append({"role": "user", "content": user_msg})
 
+    # Trim history to keep context small and fast
+    if len(messages) > MAX_HISTORY + 1:  # +1 for system msg
+        messages = [system_msg] + messages[-(MAX_HISTORY):]
+
     print("\nBot: ", end="", flush=True)
 
     try:
         stream = client.chat.completions.create(
-            model="qwen2.5-coder:14b",
+            model="qwen2.5-coder:7b",
             messages=messages,
-            max_tokens=200,  # Reduced for faster responses
+            max_tokens=200,
             stream=True,
-            temperature=0.3,  # Lower = faster generation
-            top_p=0.9,  # Nucleus sampling for speed
+            temperature=0.3,
+            top_p=0.9,
             extra_body={
-                "num_ctx": 1024,  # Minimum context for speed
-                "keep_alive": "30m",  # Keep model loaded
-                "num_predict": 200,  # Match max_tokens
-                "repeat_penalty": 1.1,  # Faster by avoiding repetition
+                "num_ctx": 1024,
+                "keep_alive": "30m",
+                "num_predict": 200,
+                "repeat_penalty": 1.1,
+                "num_batch": 512,  # Larger batch = faster prompt processing
             },
         )
 
