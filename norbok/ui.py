@@ -5,6 +5,9 @@ from rich.markdown import Markdown
 from prompt_toolkit import prompt as ptk_prompt
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.lexers import PygmentsLexer
+from pygments.lexers.python import PythonLexer
+from prompt_toolkit.key_binding import KeyBindings
 
 console = Console()
 
@@ -168,4 +171,23 @@ def get_input():
         message=[("class:bold", "student: ")],
         style=PTK_STYLE,
         placeholder=[("class:placeholder", COMMANDS)],
+    )
+
+
+def get_code_input():
+    """
+    Open a multiline code editor with Python syntax highlighting.
+    Press Ctrl+D to submit.
+    """
+    bindings = KeyBindings()
+
+    @bindings.add('c-d')
+    def submit(event):
+        event.app.exit(result=event.app.current_buffer.text)
+
+    return ptk_prompt(
+        message=[("class:bold", "code: ")],
+        multiline=True,
+        lexer=PygmentsLexer(PythonLexer),
+        key_bindings=bindings,
     )

@@ -2,7 +2,7 @@ import signal
 import os
 import openai
 from .chat import chat, check_api_key
-from .ui import print_welcome, get_input, StreamRenderer, console
+from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model
 
 THINKING_MODELS = {"deepseek-v4-pro"}
@@ -137,6 +137,24 @@ def run():
         if lower_raw in ("exit", "quit"):
             console.print("[bold green]peace bro >:3[/bold green]")
             break
+
+        # Inline code editor command — open a multiline editor for drill answers
+        if raw == "/code":
+            console.print(
+                "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
+            )
+            try:
+                raw = get_code_input()
+            except KeyboardInterrupt:
+                console.print("\n[bold green]Code mode cancelled >:3[/bold green]")
+                continue
+            except EOFError:
+                console.print("[red]Code input cancelled[/red]")
+                continue
+            if not raw or not raw.strip():
+                console.print("[red]Empty code input — ignored[/red]")
+                continue
+            # now raw holds the code snippet; fall through to regular message handling
 
         # Regular message handling
         messages.append({"role": "user", "content": raw})
