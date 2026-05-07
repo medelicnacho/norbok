@@ -66,6 +66,10 @@ def run():
 
         raw = user_input.strip()
 
+        # Skip blank input and accidental placeholder submissions
+        if not raw or set(raw.split()) <= {"/think", "/nothink", "/switch", "/exit"}:
+            continue
+
         # Slash‑commands always start with '/'
         if raw.startswith("/"):
             command = raw[1:].lower()   # strip the '/' and normalise case
