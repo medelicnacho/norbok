@@ -41,7 +41,7 @@ class StreamRenderer:
             if self.thinking_streamed:
                 console.print()
             header = f"Norbok ({self.model_name}) >:3" if self.model_name else "Norbok >:3"
-            console.print(header, style="bold green")
+            console.print(header, style="bold blue")
             self.in_answer = True
         # Instead of printing directly, buffer and process code blocks
         self.text_buffer += token
@@ -57,13 +57,13 @@ class StreamRenderer:
                     # (they could become part of a ``` sequence in the next token)
                     if len(self.text_buffer) > 3:
                         to_print = self.text_buffer[:-3]
-                        console.print(to_print, end="", markup=False, highlight=False)
+                        console.print(to_print, end="", markup=False, highlight=False, style="blue")
                         self.text_buffer = self.text_buffer[-3:]
                     break
 
                 # We found a potential opening fence
                 before = self.text_buffer[:fence_pos]
-                console.print(before, end="", markup=False, highlight=False)
+                console.print(before, end="", markup=False, highlight=False, style="blue")
 
                 after_fence = self.text_buffer[fence_pos:]   # starts with ```
                 nl = after_fence.find("\n", 3)
@@ -128,7 +128,7 @@ class StreamRenderer:
     def end(self):
         # Flush any remaining text that never saw a fence
         if not self.in_code and self.text_buffer:
-            console.print(self.text_buffer, end="", markup=False, highlight=False)
+            console.print(self.text_buffer, end="", markup=False, highlight=False, style="blue")
             self.text_buffer = ""
 
         # If we are still inside a code block at end, output what we have
@@ -140,7 +140,7 @@ class StreamRenderer:
 
         # Guarantee the output ends with a newline
         if self.text_buffer:
-            console.print(self.text_buffer, end="", markup=False, highlight=False)
+            console.print(self.text_buffer, end="", markup=False, highlight=False, style="blue")
         console.print()
 
 
