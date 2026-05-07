@@ -106,8 +106,8 @@ def run():
 
         raw = user_input.strip()
 
-        # Skip blank input and accidental placeholder submissions
-        if not raw or set(raw.split()) <= {"/think", "/nothink", "/switch", "/exit", "/code"}:
+        # Skip blank input
+        if not raw:
             continue
 
         # Slash‑commands always start with '/'
@@ -118,7 +118,7 @@ def run():
                 console.print("[bold green]peace bro >:3[/bold green]")
                 break
 
-            if command == "switch":
+            elif command == "switch":
                 model = pick_model()
                 if not thinking_user_override:
                     use_thinking = model in THINKING_MODELS
@@ -135,19 +135,19 @@ def run():
                     )
                 continue
 
-            if command == "think":
+            elif command == "think":
                 use_thinking = True
                 thinking_user_override = True
                 console.print("[bold magenta]Thinking mode ON >:3[/bold magenta]")
                 continue
 
-            if command == "nothink":
+            elif command == "nothink":
                 use_thinking = False
                 thinking_user_override = True
                 console.print("[bold green]Thinking mode OFF >:3[/bold green]")
                 continue
 
-            if command == "code":
+            elif command == "code":
                 console.print(
                     "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
                 )
@@ -177,11 +177,12 @@ def run():
                 console.print(code_card)
 
                 raw = fenced
-                # fall through to regular message handling
+                # Fall through to regular message handling below
 
-            # Unknown slash‑command – just warn and ignore
-            console.print(f"[red]Unknown command: /{command}[/red]")
-            continue
+            else:
+                # Unknown slash‑command – just warn and ignore
+                console.print(f"[red]Unknown command: /{command}[/red]")
+                continue
 
         # Backward‑compatible plain “exit” / “quit” (no slash)
         lower_raw = raw.lower()
