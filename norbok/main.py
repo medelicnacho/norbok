@@ -6,6 +6,8 @@ from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, StreamRenderer, console
 from .models import pick_model
 
+THINKING_MODELS = {"deepseek-v4-pro"}
+
 MAX_TURNS = 20
 
 
@@ -19,7 +21,7 @@ def load_system_prompt():
 def run():
     check_api_key()
     model = pick_model()
-    use_thinking = "pro" in model
+    use_thinking = model in THINKING_MODELS
     console.print(
         f"[bold green]Using model: {model} "
         f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
@@ -74,7 +76,7 @@ def run():
             if command == "switch":
                 model = pick_model()
                 if not thinking_user_override:
-                    use_thinking = "pro" in model
+                    use_thinking = model in THINKING_MODELS
                     console.print(
                         f"[bold green]Switched to {model} "
                         f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
