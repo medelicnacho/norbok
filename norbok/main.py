@@ -5,6 +5,8 @@ from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, StreamRenderer, console
 from .models import pick_model
 
+MAX_TURNS = 20
+
 
 def run():
     check_api_key()
@@ -74,6 +76,9 @@ def run():
         }
     ]
     print_welcome()
+
+    # Track whether we've ever trimmed the conversation history
+    has_trimmed = False
 
     while True:
         try:
@@ -174,5 +179,18 @@ def run():
         renderer.end()
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
+
+        # Cap conversation history to keep context size in check.
+        # The system prompt is always kept (messages[0]).
+        # We retain at most the last MAX_TURNS * 2 user/assistant messages.
+        keep_count = MAX_TURNS * 2 + 1  # +1 for the system prompt
+        if len(messages) > keep_count:
+            messages = [messages[0]] + messages[-(MAX_TURNS * 2):]
+            if not has_trimmed:
+                has_trimmed = True
+                console.print(
+                    "[dim]Conversation history trimmed to stay within token limit. "
+                    "Norbok will still remember the key points >:3[/dim]"
+                )
 
     signal.signal(signal.SIGINT, original_sigint)
