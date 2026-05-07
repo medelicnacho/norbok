@@ -1,6 +1,7 @@
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.markdown import Markdown
 from prompt_toolkit import prompt as ptk_prompt
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
@@ -29,6 +30,9 @@ class StreamRenderer:
         self.code_buffer = []      # accumulated lines for the current code block
         self.text_buffer = ""      # buffered tokens between fences
 
+        # prose accumulation for Markdown rendering
+        self.prose_buffer = []     # list of prose tokens
+
     def thinking(self, token):
         if not self.in_thinking:
             console.print("\n🧠 thinking...", style="bold magenta")
@@ -43,7 +47,6 @@ class StreamRenderer:
             header = f"Norbok ({self.model_name}) >:3" if self.model_name else "Norbok >:3"
             console.print(header, style="bold blue")
             self.in_answer = True
-        # Instead of printing directly, buffer and process code blocks
         self.text_buffer += token
         self._process()
 
@@ -53,22 +56,26 @@ class StreamRenderer:
             if not self.in_code:
                 fence_pos = self.text_buffer.find("```")
                 if fence_pos == -1:
-                    # No fence yet → flush everything except the last 3 chars
-                    # (they could become part of a ``` sequence in the next token)
+                    # No fence yet → move safe part (everything except the last 3 chars)
+                    # into the prose buffer; those 3 chars might later form the opening ```.
                     if len(self.text_buffer) > 3:
-                        to_print = self.text_buffer[:-3]
-                        console.print(to_print, end="", markup=False, highlight=False, style="blue")
+                        to_prose = self.text_buffer[:-3]
+                        self.prose_buffer.append(to_prose)
                         self.text_buffer = self.text_buffer[-3:]
                     break
 
                 # We found a potential opening fence
                 before = self.text_buffer[:fence_pos]
-                console.print(before, end="", markup=False, highlight=False, style="blue")
+                if before:
+                    self.prose_buffer.append(before)
+
+                # Flush the prose segment before rendering the code block
+                self._flush_prose()
 
                 after_fence = self.text_buffer[fence_pos:]   # starts with ```
                 nl = after_fence.find("\n", 3)
                 if nl == -1:
-                    # Whole line not yet ready → keep it and wait for more
+                    # The whole fence line hasn't arrived yet – keep it and wait
                     self.text_buffer = after_fence
                     break
 
@@ -79,7 +86,6 @@ class StreamRenderer:
                 self.in_code = True
                 # remaining text (including the newline) becomes code content
                 self.text_buffer = after_fence[nl + 1:]
-                # continue the while loop to immediately consume any code that already arrived
                 continue
 
             else:
@@ -87,10 +93,10 @@ class StreamRenderer:
                 fence_pos = self.text_buffer.find("```")
                 if fence_pos == -1:
                     # No closing fence yet → move everything except the last 3 chars
-                    # into code_buffer (those 3 chars might be the start of ```)
+                    # into the code buffer (those 3 chars might be the start of ```)
                     if len(self.text_buffer) > 3:
-                        to_move = self.text_buffer[:-3]
-                        self.code_buffer.append(to_move)
+                        to_code = self.text_buffer[:-3]
+                        self.code_buffer.append(to_code)
                         self.text_buffer = self.text_buffer[-3:]
                     break
 
@@ -106,8 +112,16 @@ class StreamRenderer:
                 self.code_lang = ""
                 self.code_buffer = []
                 self.text_buffer = self.text_buffer[fence_pos + 3:]
-                # continue processing any further tokens (e.g. another code block)
                 continue
+
+    def _flush_prose(self):
+        """Render accumulated prose tokens as Markdown."""
+        if not self.prose_buffer:
+            return
+        prose = "".join(self.prose_buffer)
+        self.prose_buffer = []
+        md = Markdown(prose)
+        console.print(md)
 
     def _card(self):
         code = "".join(self.code_buffer)
@@ -126,21 +140,22 @@ class StreamRenderer:
         )
 
     def end(self):
-        # Flush any remaining text that never saw a fence
-        if not self.in_code and self.text_buffer:
-            console.print(self.text_buffer, end="", markup=False, highlight=False, style="blue")
-            self.text_buffer = ""
-
-        # If we are still inside a code block at end, output what we have
         if self.in_code:
+            # Finish the unfinished code block, if any
             if self.text_buffer:
                 self.code_buffer.append(self.text_buffer)
                 self.text_buffer = ""
             self._card()
+            self.in_code = False
+            self.code_lang = ""
+        else:
+            # Any leftover text is part of a prose segment
+            if self.text_buffer:
+                self.prose_buffer.append(self.text_buffer)
+                self.text_buffer = ""
 
-        # Guarantee the output ends with a newline
-        if self.text_buffer:
-            console.print(self.text_buffer, end="", markup=False, highlight=False, style="blue")
+        # Flush any remaining prose (including possible trailing text)
+        self._flush_prose()
         console.print()
 
 
