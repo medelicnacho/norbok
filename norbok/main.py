@@ -1,6 +1,8 @@
 import signal
 import os
 import openai
+from rich.syntax import Syntax
+from rich.panel import Panel
 from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model
@@ -88,7 +90,7 @@ def run():
         raw = user_input.strip()
 
         # Skip blank input and accidental placeholder submissions
-        if not raw or set(raw.split()) <= {"/think", "/nothink", "/switch", "/exit"}:
+        if not raw or set(raw.split()) <= {"/think", "/nothink", "/switch", "/exit", "/code"}:
             continue
 
         # Slash‑commands always start with '/'
@@ -128,6 +130,38 @@ def run():
                 console.print("[bold green]Thinking mode OFF >:3[/bold green]")
                 continue
 
+            if command == "code":
+                console.print(
+                    "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
+                )
+                try:
+                    code_text = get_code_input()
+                except KeyboardInterrupt:
+                    console.print("\n[bold green]Code mode cancelled >:3[/bold green]")
+                    continue
+                except EOFError:
+                    console.print("[red]Code input cancelled[/red]")
+                    continue
+                if not code_text or not code_text.strip():
+                    console.print("[red]Empty code input — ignored[/red]")
+                    continue
+
+                # Wrap in fences so Norbok sees a code block
+                fenced = f"```python\n{code_text}\n```"
+
+                # Display the submitted code back to the user
+                code_card = Panel(
+                    Syntax(code_text, "python", theme="monokai",
+                           line_numbers=True, background_color="default"),
+                    border_style="green",
+                    padding=(0, 1),
+                    title="[dim]python[/dim]",
+                )
+                console.print(code_card)
+
+                raw = fenced
+                # fall through to regular message handling
+
             # Unknown slash‑command – just warn and ignore
             console.print(f"[red]Unknown command: /{command}[/red]")
             continue
@@ -137,24 +171,6 @@ def run():
         if lower_raw in ("exit", "quit"):
             console.print("[bold green]peace bro >:3[/bold green]")
             break
-
-        # Inline code editor command — open a multiline editor for drill answers
-        if raw == "/code":
-            console.print(
-                "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
-            )
-            try:
-                raw = get_code_input()
-            except KeyboardInterrupt:
-                console.print("\n[bold green]Code mode cancelled >:3[/bold green]")
-                continue
-            except EOFError:
-                console.print("[red]Code input cancelled[/red]")
-                continue
-            if not raw or not raw.strip():
-                console.print("[red]Empty code input — ignored[/red]")
-                continue
-            # now raw holds the code snippet; fall through to regular message handling
 
         # Regular message handling
         messages.append({"role": "user", "content": raw})
