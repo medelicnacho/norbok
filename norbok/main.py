@@ -127,17 +127,50 @@ def run():
 
         # Regular message handling
         messages.append({"role": "user", "content": raw})
+        user_msg_index = len(messages) - 1
 
         renderer = StreamRenderer(model_name=model.split("/")[-1])
-        reply = chat(
-            client,
-            messages,
-            model,
-            on_token=renderer.answer,
-            on_thinking=renderer.thinking,
-            check_stop=lambda: stop_generation,
-            thinking=use_thinking,
-        )
+
+        try:
+            reply = chat(
+                client,
+                messages,
+                model,
+                on_token=renderer.answer,
+                on_thinking=renderer.thinking,
+                check_stop=lambda: stop_generation,
+                thinking=use_thinking,
+            )
+        except openai.APIError as e:
+            renderer.end()
+            messages.pop(user_msg_index)
+            console.print(
+                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
+            )
+            continue
+        except openai.APIConnectionError as e:
+            renderer.end()
+            messages.pop(user_msg_index)
+            console.print(
+                f"[red]Connection error: {e}. Check your network and try again >:3[/red]"
+            )
+            continue
+        except openai.RateLimitError as e:
+            renderer.end()
+            messages.pop(user_msg_index)
+            console.print(
+                f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
+            )
+            continue
+        except Exception as e:
+            renderer.end()
+            messages.pop(user_msg_index)
+            console.print(
+                f"[red]Unexpected error: {e}. Something went wrong. Let's try again >:3[/red]"
+            )
+            continue
+
+        # Success – flush the renderer and append assistant reply
         renderer.end()
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
