@@ -9,6 +9,7 @@ def check_api_key():
 
 def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
          thinking=False):
+    """Returns (full_text, interrupted) tuple."""
     base = {
         "model": model,
         "messages": messages,
@@ -25,8 +26,10 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
 
     stream = client.chat.completions.create(**base)
     full = []
+    interrupted = False
     for chunk in stream:
         if check_stop and check_stop():
+            interrupted = True
             break
         delta = chunk.choices[0].delta
         reasoning = getattr(delta, "reasoning_content", None)
@@ -37,4 +40,4 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
         if content:
             full.append(content)
             on_token(content)
-    return "".join(full)
+    return "".join(full), interrupted

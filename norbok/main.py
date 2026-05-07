@@ -137,7 +137,7 @@ def run():
         renderer = StreamRenderer(model_name=model.split("/")[-1])
 
         try:
-            reply = chat(
+            reply, interrupted = chat(
                 client,
                 messages,
                 model,
@@ -177,6 +177,8 @@ def run():
 
         # Success – flush the renderer and append assistant reply
         renderer.end()
+        if interrupted:
+            reply += "\n\n[interrupted by user]"
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
 
