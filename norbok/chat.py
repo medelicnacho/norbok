@@ -1,5 +1,4 @@
 import os
-import openai
 
 
 def check_api_key():
