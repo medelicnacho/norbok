@@ -79,6 +79,7 @@ def run():
 
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
+    thinking_user_override = False
 
     while True:
         try:
@@ -103,20 +104,30 @@ def run():
 
             if command == "switch":
                 model = pick_model()
-                use_thinking = "pro" in model
-                console.print(
-                    f"[bold green]Switched to {model} "
-                    f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
-                )
+                if not thinking_user_override:
+                    use_thinking = "pro" in model
+                    console.print(
+                        f"[bold green]Switched to {model} "
+                        f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+                    )
+                else:
+                    # Keep the user's last explicit thinking toggle
+                    console.print(f"[bold green]Switched to {model}[/bold green]")
+                    console.print(
+                        f"[dim]Your previous manual thinking toggle "
+                        f"({'ON' if use_thinking else 'OFF'}) is still active >:3[/dim]"
+                    )
                 continue
 
             if command == "think":
                 use_thinking = True
+                thinking_user_override = True
                 console.print("[bold magenta]Thinking mode ON >:3[/bold magenta]")
                 continue
 
             if command == "nothink":
                 use_thinking = False
+                thinking_user_override = True
                 console.print("[bold green]Thinking mode OFF >:3[/bold green]")
                 continue
 
