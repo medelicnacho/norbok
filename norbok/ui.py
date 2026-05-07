@@ -17,7 +17,7 @@ PTK_STYLE = Style([
     ("placeholder", "#555555"),
 ])
 
-COMMANDS = "/think  /nothink  /switch  /exit"
+COMMANDS = "/think  /nothink  /switch  /exit  /code"
 
 
 class StreamRenderer:
