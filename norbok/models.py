@@ -24,8 +24,8 @@ def pick_model() -> str:
 
     choice = Prompt.ask(
         "[bold green]Enter number[/bold green]",
-        choices=["1", "2"],
-        default="2",
+        choices=[str(i) for i in range(1, len(MODELS) + 1)],
+        default=str(len(MODELS)),
     )
     selected_index = int(choice) - 1
     return MODELS[selected_index][0]
