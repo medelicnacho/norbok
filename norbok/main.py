@@ -100,9 +100,11 @@ def run():
     while True:
         try:
             user_input = get_input()
-        except (EOFError, KeyboardInterrupt):
-            console.print("\n[bold green]Peace brasskee >:3[/bold green]")
-            break
+        except EOFError:
+            console.print("\n[dim]use /exit to quit >:3[/dim]")
+            continue
+        except KeyboardInterrupt:
+            continue
 
         raw = user_input.strip()
 
@@ -183,12 +185,6 @@ def run():
                 # Unknown slash‑command – just warn and ignore
                 console.print(f"[red]Unknown command: /{command}[/red]")
                 continue
-
-        # Backward‑compatible plain “exit” / “quit” (no slash)
-        lower_raw = raw.lower()
-        if lower_raw in ("exit", "quit"):
-            console.print("[bold green]peace bro >:3[/bold green]")
-            break
 
         # Regular message handling
         messages.append({"role": "user", "content": raw})
