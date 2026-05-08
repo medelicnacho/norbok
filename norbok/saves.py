@@ -1,6 +1,8 @@
 import json
 import os
+import sys
 import tempfile
+import time
 from datetime import date
 from pathlib import Path
 
@@ -76,7 +78,19 @@ def load_slot(n):
             }
 
         return data
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError:
+        # rename the corrupt file to a backup
+        new_path = os.path.join(SAVES_DIR, f"slot_{n}.corrupt.{int(time.time())}.bak")
+        try:
+            os.replace(filepath, new_path)
+        except Exception:
+            pass
+        print(
+            f"Warning: slot {n} JSON is corrupt; moved to {new_path}",
+            file=sys.stderr,
+        )
+        return None
+    except OSError:
         return None
 
 
