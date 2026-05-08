@@ -175,9 +175,15 @@ def run_onboarding():
             "[yellow]Warning: Could not check API key (network issue). "
             "The key has been saved, but make sure you can reach DeepSeek.[/yellow]"
         )
-    except Exception:
-        # silently ignore any other issues – don't block startup
-        pass
+    except openai.NotFoundError:
+        console.print(
+            "[yellow]Couldn't validate (model name may be wrong) — key saved anyway.[/yellow]"
+        )
+    except Exception as e:
+        console.print(
+            f"[yellow]Unexpected validation error ({type(e).__name__}): {e}. "
+            "Key saved anyway.[/yellow]"
+        )
 
     console.print()
     console.print(
