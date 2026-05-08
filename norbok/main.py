@@ -540,6 +540,57 @@ def run():
 
         return True
 
+    # ---- chat helper that handles API errors ------------------------------
+    def _chat_turn(client, messages, model, use_thinking, renderer, stop_flag, user_msg_index):
+        """Send messages and handle API errors. Returns (reply, interrupted) or (None, None)."""
+        try:
+            reply, interrupted = chat(
+                client,
+                messages,
+                model,
+                on_token=renderer.answer,
+                on_thinking=renderer.thinking,
+                check_stop=stop_flag,
+                thinking=use_thinking,
+            )
+        except openai.APIError as e:
+            renderer.end()
+            if user_msg_index is not None and user_msg_index < len(messages):
+                messages.pop(user_msg_index)
+            console.print(
+                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
+            )
+            return None, None
+        except openai.APIConnectionError as e:
+            renderer.end()
+            if user_msg_index is not None and user_msg_index < len(messages):
+                messages.pop(user_msg_index)
+            console.print(
+                f"[red]Connection error: {e}. Check your network and try again >:3[/red]"
+            )
+            return None, None
+        except openai.RateLimitError as e:
+            renderer.end()
+            if user_msg_index is not None and user_msg_index < len(messages):
+                messages.pop(user_msg_index)
+            console.print(
+                f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
+            )
+            return None, None
+        except Exception as e:
+            renderer.end()
+            if user_msg_index is not None and user_msg_index < len(messages):
+                messages.pop(user_msg_index)
+            console.print(
+                f"[red]Unexpected error: {e}. Something went wrong. Let's try again >:3[/red]"
+            )
+            return None, None
+
+        renderer.end()
+        if interrupted:
+            reply += "\n\n[interrupted by user]"
+        return reply, interrupted
+
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
     thinking_user_override = False
@@ -835,50 +886,15 @@ def run():
 
         renderer = StreamRenderer(model_name=model.split("/")[-1])
 
-        try:
-            reply, interrupted = chat(
-                client,
-                msgs_for_turn,
-                model,
-                on_token=renderer.answer,
-                on_thinking=renderer.thinking,
-                check_stop=lambda: stop_generation,
-                thinking=use_thinking,
-            )
-        except openai.APIError as e:
-            renderer.end()
-            messages.pop(user_msg_index)
-            console.print(
-                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
-            )
-            continue
-        except openai.APIConnectionError as e:
-            renderer.end()
-            messages.pop(user_msg_index)
-            console.print(
-                f"[red]Connection error: {e}. Check your network and try again >:3[/red]"
-            )
-            continue
-        except openai.RateLimitError as e:
-            renderer.end()
-            messages.pop(user_msg_index)
-            console.print(
-                f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
-            )
-            continue
-        except Exception as e:
-            renderer.end()
-            messages.pop(user_msg_index)
-            console.print(
-                f"[red]Unexpected error: {e}. Something went wrong. Let's try again >:3[/red]"
-            )
+        reply, interrupted = _chat_turn(
+            client, msgs_for_turn, model, use_thinking, renderer,
+            lambda: stop_generation, user_msg_index,
+        )
+        if reply is None:
             continue
 
-        # Success – flush the renderer and append assistant reply
-        renderer.end()
-        if interrupted:
-            reply += "\n\n[interrupted by user]"
         messages.append({"role": "assistant", "content": reply})
+        stop_generation = False
 
         # Auto-trigger /code if Norbok issued a checkpoint
         if reply.lstrip().startswith("CHECKPOINT:"):
@@ -905,7 +921,15 @@ def run():
                 console.print(code_card)
                 messages.append({"role": "user", "content": fenced})
 
-        stop_generation = False
+                # Process the checkpoint submission
+                renderer_check = StreamRenderer(model_name=model.split("/")[-1])
+                reply_check, _ = _chat_turn(
+                    client, messages, model, use_thinking, renderer_check,
+                    lambda: stop_generation, len(messages)-1,
+                )
+                if reply_check is not None:
+                    messages.append({"role": "assistant", "content": reply_check})
+                    stop_generation = False
 
         # Periodic autosave every 10 assistant replies ------------------------
         turn_count += 1
