@@ -450,8 +450,9 @@ def run():
         # Slash‑commands always start with '/'
         if raw.startswith("/"):
             parts = raw[1:].split(maxsplit=1)
-            command = parts[0].lower()
+            command = parts[0].strip().lower()
             args_str = parts[1].strip() if len(parts) > 1 else None
+            print(f"[debug] command: {command!r}")
 
             if command in ("exit", "quit"):
                 console.print("[bold green]peace bro >:3[/bold green]")
