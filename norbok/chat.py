@@ -1,6 +1,9 @@
 import os
+import collections
 import openai
-from .ui import console
+
+
+ChatResult = collections.namedtuple("ChatResult", ["text", "status", "error_message"])
 
 
 def check_api_key():
@@ -18,7 +21,7 @@ def check_api_key():
 
 def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
          thinking=False):
-    """Returns (full_text, interrupted) tuple."""
+    """Returns ChatResult with fields text (str), status ('ok'|'user_interrupted'|'api_error'), error_message (str)."""
     base = {
         "model": model,
         "messages": messages,
@@ -34,7 +37,7 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
         base["temperature"] = 0.7
 
     full = []
-    interrupted = False
+    stopped_by_user = False
     stream = None
 
     def _get_reasoning_content(delta):
@@ -51,7 +54,7 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
 
         for chunk in stream:
             if check_stop and check_stop():
-                interrupted = True
+                stopped_by_user = True
                 break
             if not chunk.choices:
                 continue
@@ -64,24 +67,19 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
             if content:
                 full.append(content)
                 on_token(content)
+
+        # normal end of stream (or user stopped)
+        status = "user_interrupted" if stopped_by_user else "ok"
+        return ChatResult("".join(full), status, "")
+
     except openai.APIError as e:
-        console.print(f"[red]API error: {e}[/red]")
-        interrupted = True
-        full = []
+        return ChatResult("".join(full), "api_error", str(e))
     except openai.APIConnectionError as e:
-        console.print(f"[red]Connection error: {e}[/red]")
-        interrupted = True
-        full = []
+        return ChatResult("".join(full), "api_error", str(e))
     except openai.RateLimitError as e:
-        console.print(f"[red]Rate limit: {e}[/red]")
-        interrupted = True
-        full = []
+        return ChatResult("".join(full), "api_error", str(e))
     except KeyboardInterrupt:
-        console.print("[yellow]Interrupted[/yellow]")
-        interrupted = True
-        full = []
+        return ChatResult("".join(full), "user_interrupted", "")
     finally:
         if stream is not None:
             stream.close()
-
-    return "".join(full), interrupted

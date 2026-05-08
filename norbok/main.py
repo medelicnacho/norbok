@@ -521,7 +521,7 @@ def run():
     def _chat_turn(client, messages, model, use_thinking, renderer, stop_flag, user_msg_index):
         """Send messages and handle API errors. Returns (reply, interrupted) or (None, None)."""
         try:
-            reply, interrupted = chat(
+            chat_result = chat(
                 client,
                 messages,
                 model,
@@ -530,35 +530,28 @@ def run():
                 check_stop=stop_flag,
                 thinking=use_thinking,
             )
-        except openai.APIConnectionError as e:
-            renderer.end()
-            console.print(
-                f"[red]Connection error: {e}. Check your network and try again >:3[/red]"
-            )
-            return None, None
-        except openai.RateLimitError as e:
-            renderer.end()
-            console.print(
-                f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
-            )
-            return None, None
-        except openai.APIError as e:
-            renderer.end()
-            console.print(
-                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
-            )
-            return None, None
         except Exception as e:
+            # Unexpected error (shouldn't happen since chat() handles known ones)
             renderer.end()
             console.print(
                 f"[red]Unexpected error: {e}. Something went wrong. Let's try again >:3[/red]"
             )
             return None, None
 
-        renderer.end()
-        if interrupted:
-            reply += "\n\n[interrupted by user]"
-        return reply, interrupted
+        if chat_result.status == "api_error":
+            renderer.end()
+            console.print(
+                f"[red]API error: {chat_result.error_message}[/red]"
+            )
+            return None, None
+        elif chat_result.status == "user_interrupted":
+            renderer.end()
+            reply = chat_result.text + "\n\n[interrupted by user]"
+            return reply, True
+        else:
+            renderer.end()
+            reply = chat_result.text
+            return reply, False
 
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
