@@ -203,6 +203,8 @@ def run():
             content = content.split("\n", 1)[-1]
             content = content.rsplit("```", 1)[0].strip()
 
+        print(f"[autosave debug] raw output:\n{content!r}\n---")
+
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
