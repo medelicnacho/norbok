@@ -584,6 +584,7 @@ def run():
     turn_count = 0   # used for periodic saves every 10 assistant replies
 
     while True:
+        stop_generation = False
         try:
             user_input = get_input()
         except EOFError:
