@@ -171,6 +171,10 @@ def run():
 
     print_welcome()
 
+    if curriculum_progress or shaky_concepts_list:
+        pct = compute_percent(curriculum_progress)
+        console.print(f"Python level: {pct}% — {len(shaky_concepts_list)} shaky concept(s)")
+
     # ---- save_session: extract conversation info & persist to cur_slot ----
     def save_session():
         """Extract session info from the conversation and persist to cur_slot."""
