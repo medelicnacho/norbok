@@ -22,16 +22,21 @@ TOPICS = [
 ]
 
 
-# Pre‑compute the set of **all** prerequisites (direct + transitive) for each topic.
-# Topics are ordered so that every prerequisite appears earlier in TOPICS,
-# allowing a simple forward pass.
-_ANCESTORS = {}
-for topic in TOPICS:
-    ancestors = set()
-    for prereq_id in topic["prereqs"]:
-        ancestors.add(prereq_id)
-        ancestors.update(_ANCESTORS.get(prereq_id, set()))
-    _ANCESTORS[topic["id"]] = ancestors
+def _build_ancestors():
+    """Return the mapping of topic id -> set of all (direct+transitive) prereq ids."""
+    # Topics are ordered so that every prerequisite appears earlier in TOPICS,
+    # allowing a simple forward pass.
+    ancestors_map = {}
+    for topic in TOPICS:
+        ancestors = set()
+        for prereq_id in topic["prereqs"]:
+            ancestors.add(prereq_id)
+            ancestors.update(ancestors_map.get(prereq_id, set()))
+        ancestors_map[topic["id"]] = ancestors
+    return ancestors_map
+
+
+_ANCESTORS = _build_ancestors()
 
 
 def get_topic(topic_id: str) -> dict | None:
