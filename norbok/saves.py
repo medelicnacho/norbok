@@ -101,6 +101,7 @@ def write_slot(n, data):
         "shaky_concepts",
         "learned_concepts",
         "curriculum_progress",
+        "known_os",
     }
     record = {"slot_number": n}
     for key in allowed_keys:

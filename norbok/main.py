@@ -48,6 +48,8 @@ def run():
         shaky_concepts = {}
         learned_concepts = {}
 
+    known_os = slot_data.get("known_os", None) if slot_data is not None else None
+
     # ── curriculum progress (initially from saved slot) ────────────────
     if slot_data is not None:
         curriculum_progress = dict(slot_data.get("curriculum_progress", {}))
@@ -464,8 +466,9 @@ def run():
         # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
         data["shaky_concepts"] = shaky_concepts
         data["learned_concepts"] = learned_concepts
-        # Preserve curriculum progress
+        # Preserve curriculum progress and OS
         data["curriculum_progress"] = dict(curriculum_progress)
+        data["known_os"] = known_os
         write_slot(cur_slot, data)
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
@@ -661,6 +664,7 @@ def run():
                     shaky_concepts = {}
                     learned_concepts = {}
                     curriculum_progress = {}
+                    known_os = None
                     has_trimmed = False
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
                 continue
@@ -813,7 +817,19 @@ def run():
         messages.append({"role": "user", "content": raw})
         user_msg_index = len(messages) - 1
 
-        # ---- per‑turn system injections (Socratic guard + code review) ----
+        # ── OS detection (only until we know) ──────────────────────────────
+        if known_os is None:
+            lower_raw = raw.lower()
+            if "windows" in lower_raw or " win " in lower_raw or lower_raw.startswith("win "):
+                known_os = "windows"
+            elif "macos" in lower_raw or "mac os" in lower_raw or " mac" in lower_raw or "osx" in lower_raw:
+                known_os = "macos"
+            elif any(k in lower_raw for k in ("linux", "ubuntu", "debian", "arch", "fedora")):
+                known_os = "linux"
+            if known_os is not None:
+                console.print(f"[dim]OS detected: {known_os} — terminal commands will be tailored.[/dim]")
+
+        # ---- per‑turn system injections (Socratic guard + code review + OS) ----
         extra_instruction = ""
         if _is_socratic_trigger(raw):
             extra_instruction += (
@@ -826,6 +842,10 @@ def run():
                 "part by part. Then show a corrected or improved version as a code block "
                 "with a comment above every line. End by asking: what would break if you "
                 "removed [the most important line they wrote]?]"
+            )
+        if known_os is not None:
+            extra_instruction += (
+                f"\n[Student is on {known_os} — only show terminal commands for that OS.]"
             )
         if extra_instruction:
             msgs_for_turn = messages[:]
