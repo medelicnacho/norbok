@@ -235,6 +235,8 @@ def run():
             return False
 
         write_slot(cur_slot, data)
+        # Update the in‑memory shaky_concepts list with the freshly extracted data
+        shaky_concepts_list[:] = data.get("shaky_concepts", [])
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
 
