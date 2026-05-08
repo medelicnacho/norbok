@@ -24,10 +24,10 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
         "max_tokens": 8192,
     }
     if thinking:
-        base.update(
-            extra_body={"thinking": {"type": "enabled"}},
-            reasoning_effort="high",
-        )
+        base["extra_body"] = {
+            "thinking": {"type": "enabled"},
+            "reasoning_effort": "high",
+        }
     else:
         base["temperature"] = 0.7
 
