@@ -5,7 +5,8 @@ from rich.syntax import Syntax
 from rich.panel import Panel
 from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
-from .models import pick_model
+from .models import pick_model, pick_session
+from .saves import load_slot
 
 THINKING_MODELS = {"deepseek-v4-pro"}
 
@@ -15,6 +16,18 @@ MAX_TURNS = 20
 def run():
     check_api_key()
     model = pick_model()
+
+    # Choose a save slot ------------------------------------------------
+    session_choice = pick_session()
+    if isinstance(session_choice, int):
+        cur_slot = session_choice
+        slot_data = load_slot(cur_slot)
+    else:
+        # "new" selected or an error occurred - no slot loaded yet
+        cur_slot = None
+        slot_data = None
+    # -------------------------------------------------------------------
+
     use_thinking = model in THINKING_MODELS
     console.print(
         f"[bold green]Using model: {model} "
@@ -91,6 +104,22 @@ def run():
             ),
         }
     ]
+
+    # ---- inject saved session context if a filled slot was chosen ----
+    if cur_slot is not None and slot_data is not None:
+        project = slot_data.get("project_name", "unknown")
+        level = slot_data.get("coding_level", "unknown")
+        summary = slot_data.get("summary", "none")
+        shaky = ", ".join(slot_data.get("shaky_concepts", [])) or "none"
+        session_info = (
+            f"\n\nCurrent session: slot {cur_slot}.\n"
+            f"Project: {project}.\n"
+            f"Coding level: {level}.\n"
+            f"Summary: {summary}.\n"
+            f"Shaky concepts: {shaky}.\n"
+        )
+        messages[0]["content"] += session_info
+
     print_welcome()
 
     # Track whether we've ever trimmed the conversation history
