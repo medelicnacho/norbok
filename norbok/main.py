@@ -553,12 +553,6 @@ def run():
                 check_stop=stop_flag,
                 thinking=use_thinking,
             )
-        except openai.APIError as e:
-            renderer.end()
-            console.print(
-                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
-            )
-            return None, None
         except openai.APIConnectionError as e:
             renderer.end()
             console.print(
@@ -569,6 +563,12 @@ def run():
             renderer.end()
             console.print(
                 f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
+            )
+            return None, None
+        except openai.APIError as e:
+            renderer.end()
+            console.print(
+                f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
             )
             return None, None
         except Exception as e:
