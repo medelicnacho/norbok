@@ -545,6 +545,8 @@ def run():
                     messages = [{"role": "system", "content": system_prompt_text}]
                     cur_slot = None
                     turn_count = 0
+                    shaky_concepts_list = []
+                    has_trimmed = False
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
                 continue
 
