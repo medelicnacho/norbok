@@ -470,25 +470,26 @@ def run():
                 continue
 
             elif command == "saveas":
-                console.print("[bold cyan]Pick an empty slot to save into:[/bold cyan]")
+                console.print("[bold cyan]Pick a slot to save into:[/bold cyan]")
                 slots_info = list_slots()
-                empty_slots = [entry for entry in slots_info if entry["status"] == "empty"]
-                if not empty_slots:
-                    console.print("[red]All slots are full. Clear a slot first.[/red]")
-                    continue
 
-                table = Table(title="Empty Slots", border_style="green")
+                table = Table(title="Save Slots", border_style="green")
                 table.add_column("Slot", style="bold cyan", justify="center")
-                table.add_column("Status", style="dim")
-                for entry in empty_slots:
-                    table.add_row(str(entry["slot"]), "empty")
+                table.add_column("Project", style="white")
+                for entry in slots_info:
+                    slot = entry["slot"]
+                    if entry["status"] == "filled":
+                        proj = entry["data"].get("project_name", "unknown")
+                    else:
+                        proj = "[dim](empty)[/dim]"
+                    table.add_row(str(slot), proj)
                 console.print(table)
 
-                valid_choices = [str(entry["slot"]) for entry in empty_slots]
+                choices = [str(i) for i in range(1, 6)]
                 choice = Prompt.ask(
                     "[bold green]Pick a slot number[/bold green]",
-                    choices=valid_choices,
-                    default=valid_choices[0],
+                    choices=choices,
+                    default="1",
                 )
                 cur_slot = int(choice)
                 console.print(f"[bold green]Session assigned to slot {cur_slot}.[/bold green]")
