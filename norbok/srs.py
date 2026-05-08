@@ -36,7 +36,7 @@ def record_result(shaky, concept_id, result, today=None):
     Returns a deep copy; original is never modified.
     """
     # Ignore invalid / None results – do not touch history at all.
-    if result is None or result not in VALID_RESULTS:
+    if result not in VALID_RESULTS:
         return shaky.copy()
 
     today_iso = today if today else date.today().isoformat()
@@ -60,9 +60,6 @@ def record_result(shaky, concept_id, result, today=None):
         new_interval = min(int(old_interval * 1.2) + 1, MAX_INTERVAL)
     elif result in ("wrong", "gave_up"):
         new_interval = 1
-    else:
-        # Unrecognised result – leave unchanged
-        return shaky_copy
 
     entry["interval_days"] = new_interval
     today_date = date.today() if today is None else date.fromisoformat(today_iso)
