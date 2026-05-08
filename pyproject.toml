@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "norbok"
 version = "0.1.1"
-requires-python = ">3.9"
+requires-python = ">=3.10"
 dependencies = [
     "openai>=1.50,<2",
     "rich>=13.0,<14",
