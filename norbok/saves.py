@@ -10,7 +10,11 @@ def _get_data_dir():
     if os.name == 'nt':
         base = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
     else:
-        base = Path.home() / '.config'
+        xdg = os.environ.get('XDG_CONFIG_HOME')
+        if xdg:
+            base = Path(xdg)
+        else:
+            base = Path.home() / '.config'
     return base / 'norbok'
 
 SAVES_DIR = str(_get_data_dir())

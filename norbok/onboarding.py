@@ -13,11 +13,19 @@ console = Console()
 
 PTK_STYLE = Style([("bold", "bold ansigreen")])
 
-ENV_FILE = str(
-    (Path.home() / ".config" / "norbok" / ".env")
-    if os.name != "nt"
-    else Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "norbok" / ".env"
-)
+
+def _compute_env_file_path():
+    if os.name == 'nt':
+        base = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+    else:
+        if xdg := os.environ.get('XDG_CONFIG_HOME'):
+            base = Path(xdg)
+        else:
+            base = Path.home() / '.config'
+    return str(base / 'norbok' / '.env')
+
+
+ENV_FILE = _compute_env_file_path()
 
 
 def _ensure_data_dir():
