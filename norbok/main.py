@@ -3,11 +3,13 @@ import random
 import signal
 import os
 import openai
+from datetime import date
 from rich.syntax import Syntax
 from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt
 from .chat import chat, check_api_key
+from .srs import record_result, graduate_concepts, add_concept
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model, pick_session
 from .saves import load_slot, write_slot, list_slots, delete_slot
@@ -38,11 +40,13 @@ def run():
         slot_data = None
     # -------------------------------------------------------------------
 
-    # ── shaky_concepts list for /quiz (initially from saved slot) ──────
+    # ── shaky concepts and learned (SRS) ──────
     if slot_data is not None:
-        shaky_concepts_list = list(slot_data.get("shaky_concepts", []))
+        shaky_concepts = dict(slot_data.get("shaky_concepts", {}))
+        learned_concepts = dict(slot_data.get("learned_concepts", {}))
     else:
-        shaky_concepts_list = []
+        shaky_concepts = {}
+        learned_concepts = {}
 
     # ── curriculum progress (initially from saved slot) ────────────────
     if slot_data is not None:
@@ -171,9 +175,9 @@ def run():
 
     print_welcome()
 
-    if curriculum_progress or shaky_concepts_list:
+    if curriculum_progress or shaky_concepts:
         pct = compute_percent(curriculum_progress)
-        console.print(f"Python level: {pct}% — {len(shaky_concepts_list)} shaky concept(s)")
+        console.print(f"Python level: {pct}% — {len(shaky_concepts)} shaky concept(s)")
 
     # ---- save_session: extract conversation info & persist to cur_slot ----
     def save_session():
@@ -246,21 +250,24 @@ def run():
             print(f"[debug] raw was: {content[:800]!r}")
             return False
 
-        # Use the in-memory shaky_concepts list as the source of truth,
-        # ignoring whatever the LLM extracted.
-        data["shaky_concepts"] = list(shaky_concepts_list)
+        # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
+        data["shaky_concepts"] = shaky_concepts
+        data["learned_concepts"] = learned_concepts
         write_slot(cur_slot, data)
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
 
     # ---- run_quiz: standalone quiz sub-loop ----
-    def run_quiz(concept, client, model, shaky_concepts, current_slot):
+    def run_quiz(concept, client, model, shaky_concepts, learned_concepts, current_slot):
         """
         Generate a quiz question, run hints/grading sub-loop, mutate
-        shaky_concepts and persist if a slot is assigned.
+        shaky_concepts and learned_concepts via SRS, and persist if a slot is assigned.
         Returns the result string.  Does NOT print the final summary line;
         the caller is responsible for that.
         """
+        # Ensure concept exists in SRS tracking
+        shaky_concepts = add_concept(shaky_concepts, concept)
+
         # ── generate question via API ──
         quiz_sys = (
             "You are a coding quiz generator. Given a concept, pick the best "
@@ -425,16 +432,28 @@ def run():
                 result = "wrong"
                 break
 
-        # ── post‑quiz updates ──
-        if result == "correct":
-            if concept in shaky_concepts:
-                shaky_concepts.remove(concept)
+        # ── SRS update ──
+        shaky_concepts = record_result(shaky_concepts, concept, result)
+        shaky_concepts, learned_concepts, graduated = graduate_concepts(
+            shaky_concepts, learned_concepts
+        )
 
-        if current_slot is not None:
-            slot_data = load_slot(current_slot)
-            if slot_data is not None:
-                slot_data["shaky_concepts"] = list(shaky_concepts)
-                write_slot(current_slot, slot_data)
+        if graduated:
+            for cid in graduated:
+                console.print(
+                    f"🎓 '{cid}' graduated — you've got that one solid.",
+                    style="bold green"
+                )
+
+        # Show current SRS state
+        today_str = date.today().isoformat()
+        due_count = len([
+            c for c in shaky_concepts
+            if shaky_concepts[c]["next_review"] <= today_str
+        ])
+        console.print(
+            f"Shaky: {len(shaky_concepts)} concepts, {due_count} due today."
+        )
 
         # ── curriculum progress update (if concept maps to a topic) ──
         topic = get_topic(concept)
@@ -452,6 +471,14 @@ def run():
                 if data:
                     data["curriculum_progress"] = dict(curriculum_progress)
                     write_slot(current_slot, data)
+
+        # Persist both SRS dicts if a slot is assigned
+        if current_slot is not None:
+            data = load_slot(current_slot)
+            if data:
+                data["shaky_concepts"] = shaky_concepts
+                data["learned_concepts"] = learned_concepts
+                write_slot(current_slot, data)
 
         return result
 
@@ -579,7 +606,8 @@ def run():
                     messages = [{"role": "system", "content": system_prompt_text}]
                     cur_slot = None
                     turn_count = 0
-                    shaky_concepts_list = []
+                    shaky_concepts = {}
+                    learned_concepts = {}
                     has_trimmed = False
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
                 continue
@@ -636,14 +664,14 @@ def run():
                 if args_str:
                     concept = args_str
                 else:
-                    if not shaky_concepts_list:
+                    if not shaky_concepts:
                         console.print(
                             "[yellow]No shaky concepts yet. Keep chatting and I'll track what trips you up. >:3[/yellow]"
                         )
                         continue
-                    concept = random.choice(shaky_concepts_list)
+                    concept = random.choice(list(shaky_concepts.keys()))
 
-                result = run_quiz(concept, client, model, shaky_concepts_list, cur_slot)
+                result = run_quiz(concept, client, model, shaky_concepts, learned_concepts, cur_slot)
                 console.print(f"[bold]Quiz result: {result}[/bold]")
                 continue
 
