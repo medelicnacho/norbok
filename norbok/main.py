@@ -432,6 +432,23 @@ def run():
                 slot_data["shaky_concepts"] = list(shaky_concepts)
                 write_slot(current_slot, slot_data)
 
+        # ── curriculum progress update (if concept maps to a topic) ──
+        topic = get_topic(concept)
+        if topic is not None:
+            if result == "correct":
+                curriculum_progress[concept] = "complete"
+                console.print(f"✓ {topic['title']} marked complete in your curriculum.")
+            elif result in ("partial", "wrong"):
+                if curriculum_progress.get(concept) != "complete":
+                    curriculum_progress[concept] = "in_progress"
+            # gave_up, skipped → no change
+
+            if current_slot is not None:
+                data = load_slot(current_slot)
+                if data:
+                    data["curriculum_progress"] = dict(curriculum_progress)
+                    write_slot(current_slot, data)
+
         return result
 
     # Track whether we've ever trimmed the conversation history
