@@ -1,5 +1,6 @@
 import os
 import tempfile
+import openai
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -142,6 +143,33 @@ def run_onboarding():
 
     _save_key_to_env_file(key)
     os.environ["DEEPSEEK_API_KEY"] = key
+
+    # ---- minimal validation call ----
+    try:
+        test_client = openai.OpenAI(
+            api_key=key,
+            base_url="https://api.deepseek.com/v1",
+        )
+        test_client.chat.completions.create(
+            model="deepseek-v4-flash",
+            messages=[{"role": "user", "content": "test"}],
+            max_tokens=1,
+            temperature=0,
+            stream=False,
+        )
+    except openai.AuthenticationError:
+        console.print(
+            "[yellow]Warning: The API key may be invalid. "
+            "It has been saved, but you may need to update it later.[/yellow]"
+        )
+    except openai.APIConnectionError:
+        console.print(
+            "[yellow]Warning: Could not check API key (network issue). "
+            "The key has been saved, but make sure you can reach DeepSeek.[/yellow]"
+        )
+    except Exception:
+        # silently ignore any other issues – don't block startup
+        pass
 
     console.print()
     console.print(
