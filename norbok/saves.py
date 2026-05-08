@@ -2,14 +2,34 @@ import json
 import os
 import tempfile
 from datetime import date
+from pathlib import Path
 
-SAVES_DIR = "saves"
+def _get_data_dir():
+    if os.name == 'nt':
+        base = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+    else:
+        base = Path.home() / '.config'
+    return base / 'norbok'
+
+SAVES_DIR = str(_get_data_dir())
+
 NUM_SLOTS = 5
+
+_OLD_SAVES_NOTIFIED = False
 
 
 def _ensure_dir():
     if not os.path.exists(SAVES_DIR):
-        os.makedirs(SAVES_DIR)
+        os.makedirs(SAVES_DIR, exist_ok=True)
+    global _OLD_SAVES_NOTIFIED
+    if not _OLD_SAVES_NOTIFIED:
+        _OLD_SAVES_NOTIFIED = True
+        if os.path.isdir("./saves"):
+            print(
+                "Old './saves' directory found. "
+                "Move its contents to %s (or %APPDATA%/norbok on Windows) and delete it."
+                % SAVES_DIR
+            )
 
 
 def load_slot(n):

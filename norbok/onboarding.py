@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
@@ -10,7 +11,15 @@ console = Console()
 
 PTK_STYLE = Style([("bold", "bold ansigreen")])
 
-ENV_FILE = ".env"
+ENV_FILE = str(
+    (Path.home() / ".config" / "norbok" / ".env")
+    if os.name != "nt"
+    else Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "norbok" / ".env"
+)
+
+
+def _ensure_data_dir():
+    Path(ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
 
 
 def _load_env_file():
@@ -28,6 +37,7 @@ def _load_env_file():
 
 def _save_key_to_env_file(key: str):
     """Write or update DEEPSEEK_API_KEY in the local .env file."""
+    _ensure_data_dir()
     lines = []
     replaced = False
     if os.path.isfile(ENV_FILE):
