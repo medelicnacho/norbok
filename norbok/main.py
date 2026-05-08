@@ -171,7 +171,19 @@ def run():
                 conv_lines.append(f"Student: {content}")
             elif role == "assistant":
                 conv_lines.append(f"Norbok: {content}")
-        conv_text = "\n".join(conv_lines)[-4000:]
+        full_text = "\n".join(conv_lines)
+
+        # Truncate wisely: keep first 1500 chars and last 4000 chars if total > 5500
+        if len(full_text) <= 5500:
+            conv_text = full_text
+        else:
+            prefix = full_text[:1500]
+            suffix = full_text[-4000:]
+            conv_text = (
+                prefix
+                + "\n[...middle of conversation truncated...]\n"
+                + suffix
+            )
 
         extraction_msgs = [
             {"role": "system", "content": "You are a helpful assistant that extracts structured data from a conversation. Only output valid JSON."},
