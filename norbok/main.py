@@ -689,19 +689,12 @@ def run():
 
             elif command == "switch":
                 model = pick_model()
-                if not thinking_user_override:
-                    use_thinking = model in THINKING_MODELS
-                    console.print(
-                        f"[bold green]Switched to {model} "
-                        f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
-                    )
-                else:
-                    # Keep the user's last explicit thinking toggle
-                    console.print(f"[bold green]Switched to {model}[/bold green]")
-                    console.print(
-                        f"[dim]Your previous manual thinking toggle "
-                        f"({'ON' if use_thinking else 'OFF'}) is still active >:3[/dim]"
-                    )
+                thinking_user_override = False
+                use_thinking = model in THINKING_MODELS
+                console.print(
+                    f"[bold green]Switched to {model} "
+                    f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+                )
                 continue
 
             elif command == "think":
