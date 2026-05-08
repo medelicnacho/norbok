@@ -12,6 +12,7 @@ from .ui import print_welcome, get_input, get_code_input, StreamRenderer, consol
 from .models import pick_model, pick_session
 from .saves import load_slot, write_slot, list_slots, delete_slot
 from .onboarding import run_onboarding
+from .curriculum import TOPICS, compute_percent, next_topics, get_topic
 
 THINKING_MODELS = {"deepseek-v4-pro"}
 
@@ -42,6 +43,12 @@ def run():
         shaky_concepts_list = list(slot_data.get("shaky_concepts", []))
     else:
         shaky_concepts_list = []
+
+    # ── curriculum progress (initially from saved slot) ────────────────
+    if slot_data is not None:
+        curriculum_progress = dict(slot_data.get("curriculum_progress", {}))
+    else:
+        curriculum_progress = {}
 
     use_thinking = model in THINKING_MODELS
     console.print(
@@ -554,6 +561,54 @@ def run():
                     shaky_concepts_list = []
                     has_trimmed = False
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
+                continue
+
+            elif command == "curriculum":
+                if args_str:
+                    # /curriculum <topic_id> — start a topic
+                    topic_id = args_str.strip()
+                    topic = get_topic(topic_id)
+                    if topic is None:
+                        console.print("Unknown topic. Use /curriculum to see the list.")
+                        continue
+                    curriculum_progress[topic_id] = "in_progress"
+                    console.print(
+                        f"Starting: {topic['title']}. Ask me anything about it, or /quiz {topic_id} when you feel ready."
+                    )
+                    if cur_slot is not None:
+                        data = load_slot(cur_slot)
+                        if data:
+                            data["curriculum_progress"] = dict(curriculum_progress)
+                            write_slot(cur_slot, data)
+                else:
+                    # /curriculum — show full progress table
+                    table = Table(title="Python Curriculum", border_style="green")
+                    table.add_column("%", style="bold cyan", justify="right")
+                    table.add_column("Topic", style="white")
+                    table.add_column("Status", style="bold")
+
+                    for t in TOPICS:
+                        status = curriculum_progress.get(t["id"], "not_started")
+                        if status == "complete":
+                            status_display = "[green]✓ done[/green]"
+                        elif status == "in_progress":
+                            status_display = "[yellow]~ learning[/yellow]"
+                        else:
+                            status_display = "[dim]· not started[/dim]"
+                        table.add_row(str(t["pct"]), t["title"], status_display)
+
+                    console.print(table)
+
+                    pct_val = compute_percent(curriculum_progress)
+                    bar_width = 20
+                    filled = int(pct_val / 100 * bar_width)
+                    bar = "█" * filled + "░" * (bar_width - filled)
+                    console.print(f"Python level: {pct_val}%  [{bar}]")
+
+                    nexts = next_topics(curriculum_progress, 3)
+                    if nexts:
+                        console.print("Up next: " + ", ".join(t["title"] for t in nexts))
+
                 continue
 
             elif command == "quiz":
