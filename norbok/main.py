@@ -432,6 +432,114 @@ def run():
                 console.print(quiz_data.get("question", ""))
                 console.print()
                 console.print("[dim](answer below, or type /hint, or /skip to bail)[/dim]")
+
+                # ──────────────────────── quiz sub‑loop ────────────────────────
+                hint_count = 0
+                result = None
+                quiz_attempt = 0  # 1 = first try, 2 = second chance
+
+                while True:
+                    ans = get_input().strip()
+                    if not ans:
+                        continue
+
+                    if ans == "/hint":
+                        hints = quiz_data.get("hints", [])
+                        if hint_count < 2 and hint_count < len(hints):
+                            console.print(f"[dim]Hint {hint_count+1}:[/dim] {hints[hint_count]}")
+                            hint_count += 1
+                        else:
+                            console.print(f"[bold red]Here's the answer:[/bold red] {quiz_data['answer']}")
+                            result = "gave_up"
+                            break
+                        continue
+
+                    if ans == "/skip":
+                        result = "skipped"
+                        break
+
+                    # ── grade the answer ──
+                    student_answer = ans
+                    grade_msgs = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are grading a coding quiz answer. Be strict but fair. "
+                                "Respond ONLY with valid JSON, no fences:\n"
+                                "{'result': 'correct|partial|wrong',\n"
+                                " 'feedback': '<one concise sentence>',\n"
+                                " 'explanation': '<brief explanation, only include if wrong or partial>'}"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Concept: {concept}\n"
+                                f"Question: {quiz_data.get('question', '')}\n"
+                                f"Expected answer: {quiz_data.get('answer', '')}\n"
+                                f"Student answered: {student_answer}"
+                            ),
+                        },
+                    ]
+
+                    try:
+                        resp_grade = client.chat.completions.create(
+                            model="deepseek-v4-flash",
+                            messages=grade_msgs,
+                            max_tokens=256,
+                            temperature=0.1,
+                            response_format={"type": "json_object"},
+                            stream=False,
+                        )
+                        grade_content = resp_grade.choices[0].message.content.strip()
+                    except Exception as e:
+                        console.print(f"[red]Quiz grading failed: {e}[/red]")
+                        break
+
+                    # Strip fences if present
+                    if grade_content.startswith("```"):
+                        grade_content = grade_content.split("\n", 1)[-1]
+                        grade_content = grade_content.rsplit("```", 1)[0].strip()
+
+                    try:
+                        grade_data = json.loads(grade_content)
+                    except json.JSONDecodeError:
+                        console.print("[red]Grade JSON malformed. Try again later.[/red]")
+                        break
+
+                    grade_result = grade_data.get("result", "wrong")
+                    feedback = grade_data.get("feedback", "")
+                    explanation = grade_data.get("explanation", "")
+
+                    console.print(f"[bold]{feedback}[/bold]")
+
+                    if grade_result == "correct":
+                        result = "correct"
+                        break
+
+                    if grade_result == "partial":
+                        if quiz_attempt == 0:
+                            console.print(f"[dim]{explanation}[/dim]")
+                            console.print("[bold yellow]One more try.[/bold yellow]")
+                            quiz_attempt = 1
+                            continue
+                        else:
+                            result = "partial"
+                            break
+
+                    # wrong
+                    if quiz_attempt == 0:
+                        console.print(f"[dim]{explanation}[/dim]")
+                        console.print("[bold yellow]One more try.[/bold yellow]")
+                        quiz_attempt = 1
+                        continue
+                    else:
+                        console.print(f"[dim]{explanation}[/dim]")
+                        console.print(f"[bold red]The answer was:[/bold red] {quiz_data['answer']}")
+                        result = "wrong"
+                        break
+
+                console.print(f"[bold]Quiz result: {result}[/bold]")
                 continue
 
             elif command == "code":
