@@ -1,4 +1,5 @@
 import json
+import random
 import signal
 import os
 import openai
@@ -35,6 +36,12 @@ def run():
         cur_slot = None
         slot_data = None
     # -------------------------------------------------------------------
+
+    # ── shaky_concepts list for /quiz (initially from saved slot) ──────
+    if slot_data is not None:
+        shaky_concepts_list = list(slot_data.get("shaky_concepts", []))
+    else:
+        shaky_concepts_list = []
 
     use_thinking = model in THINKING_MODELS
     console.print(
@@ -253,7 +260,9 @@ def run():
 
         # Slash‑commands always start with '/'
         if raw.startswith("/"):
-            command = raw[1:].lower()   # strip the '/' and normalise case
+            parts = raw[1:].split(maxsplit=1)
+            command = parts[0].lower()
+            args_str = parts[1].strip() if len(parts) > 1 else None
 
             if command in ("exit", "quit"):
                 console.print("[bold green]peace bro >:3[/bold green]")
@@ -352,6 +361,77 @@ def run():
                     cur_slot = None
                     turn_count = 0
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
+                continue
+
+            elif command == "quiz":
+                # Pick concept
+                if args_str:
+                    concept = args_str
+                else:
+                    if not shaky_concepts_list:
+                        console.print(
+                            "[yellow]No shaky concepts yet. Keep chatting and I'll track what trips you up. >:3[/yellow]"
+                        )
+                        continue
+                    concept = random.choice(shaky_concepts_list)
+
+                # Generate question via API
+                quiz_sys = (
+                    "You are a coding quiz generator. Given a concept, pick the best "
+                    "question format and generate one question. Rules:\n"
+                    "- behavior/scope/mutation/async/references → PREDICT: show code, "
+                    "ask what it prints or returns\n"
+                    "- syntax/patterns/comprehensions/decorators → PRODUCE: ask student "
+                    "to write code from scratch or complete a partial function\n"
+                    "- debugging-prone concepts like async/generators/recursion → DEBUG: "
+                    "show broken code, ask them to find and fix it\n"
+                    "- purely conceptual/definitional → EXPLAIN\n\n"
+                    "Respond ONLY with valid JSON, no fences, no preamble:\n"
+                    "{\n"
+                    "  \"format\": \"predict|produce|debug|explain\",\n"
+                    "  \"question\": \"<full question text with any code snippet>\",\n"
+                    "  \"answer\": \"<correct answer or solution>\",\n"
+                    "  \"hints\": [\"<hint 1>\", \"<hint 2>\"]\n"
+                    "}"
+                )
+                quiz_usr = f"Generate a quiz question for: {concept}"
+
+                try:
+                    resp = client.chat.completions.create(
+                        model="deepseek-v4-flash",
+                        messages=[
+                            {"role": "system", "content": quiz_sys},
+                            {"role": "user", "content": quiz_usr},
+                        ],
+                        max_tokens=1024,
+                        temperature=0.4,
+                        response_format={"type": "json_object"},
+                        stream=False,
+                    )
+                    content = resp.choices[0].message.content.strip()
+                except Exception as e:
+                    console.print(f"[red]Quiz generation failed: {e}[/red]")
+                    continue
+
+                # Parse JSON (strip fences if present)
+                if content.startswith("```"):
+                    content = content.split("\n", 1)[-1]
+                    content = content.rsplit("```", 1)[0].strip()
+
+                try:
+                    quiz_data = json.loads(content)
+                except json.JSONDecodeError:
+                    console.print("[red]Quiz JSON malformed. Try again later.[/red]")
+                    continue
+
+                # Display the question
+                console.print(
+                    f"[bold yellow]📝  Quiz: {concept}  [{quiz_data.get('format', '?')}][/bold yellow]"
+                )
+                console.print()
+                console.print(quiz_data.get("question", ""))
+                console.print()
+                console.print("[dim](answer below, or type /hint, or /skip to bail)[/dim]")
                 continue
 
             elif command == "code":
