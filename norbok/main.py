@@ -517,6 +517,8 @@ def run():
         # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
         data["shaky_concepts"] = shaky_concepts
         data["learned_concepts"] = learned_concepts
+        # Preserve curriculum progress
+        data["curriculum_progress"] = dict(curriculum_progress)
         write_slot(cur_slot, data)
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
