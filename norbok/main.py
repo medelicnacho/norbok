@@ -77,6 +77,7 @@ def run():
     client = openai.OpenAI(
         api_key=os.environ["DEEPSEEK_API_KEY"],
         base_url="https://api.deepseek.com/v1",
+        timeout=45.0,
     )
 
     stop_generation = False
@@ -704,9 +705,22 @@ def run():
                 continue
 
             elif command == "nothink":
-                use_thinking = False
-                thinking_user_override = True
-                console.print("[bold green]Thinking mode OFF >:3[/bold green]")
+                if model in THINKING_MODELS:
+                    console.print(
+                        "[yellow]DeepSeek‑V4‑Pro is a reasoning model and requires thinking. "
+                        "Switching to deepseek‑v4‑flash.[/yellow]"
+                    )
+                    model = "deepseek-v4-flash"
+                    thinking_user_override = False
+                    use_thinking = model in THINKING_MODELS
+                    console.print(
+                        f"[bold green]Now using {model} "
+                        f"(thinking {'on' if use_thinking else 'off'}) >:3[/bold green]"
+                    )
+                else:
+                    use_thinking = False
+                    thinking_user_override = True
+                    console.print("[bold green]Thinking mode OFF >:3[/bold green]")
                 continue
 
             elif command == "delete_session":
