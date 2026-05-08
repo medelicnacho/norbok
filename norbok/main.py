@@ -638,6 +638,31 @@ def run():
                     default="1",
                 )
                 cur_slot = int(choice)
+
+                # ---- confirmation before overwriting ----
+                for entry in slots_info:
+                    if entry["slot"] == cur_slot:
+                        existing = entry["data"]
+                        break
+                else:
+                    existing = None
+
+                # existing can be None if the slot is empty.
+                if existing is not None and existing.get("project_name"):
+                    proj_name = existing["project_name"]
+                    summary = (existing.get("summary") or "").strip()
+                    console.print(f"[bold yellow]Slot {cur_slot} already contains:[/bold yellow]")
+                    console.print(f"  Project: {proj_name}")
+                    if summary:
+                        snippet = summary[:120].replace("\n", " ")
+                        if len(summary) > 120:
+                            snippet += "..."
+                        console.print(f"  Summary: {snippet}")
+                    confirm = Prompt.ask("Type OVERWRITE to confirm, anything else to cancel")
+                    if confirm != "OVERWRITE":
+                        console.print("[yellow]Save aborted.[/yellow]")
+                        continue
+
                 console.print(f"[bold green]Session assigned to slot {cur_slot}.[/bold green]")
                 # Immediately save the current conversation into the chosen slot
                 console.print("[bold cyan]Saving current session...[/bold cyan]")
