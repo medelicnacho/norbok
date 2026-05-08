@@ -2,6 +2,7 @@ import json
 import random
 import signal
 import os
+import re
 import openai
 from datetime import date
 from rich.syntax import Syntax
@@ -19,6 +20,17 @@ from .curriculum import TOPICS, compute_percent, next_topics, get_topic
 THINKING_MODELS = {"deepseek-v4-pro"}
 
 MAX_TURNS = 20
+
+# -- word-boundary regexes for OS detection --
+_RE_MACOS = re.compile(r"\b(macos|mac\s*os|osx|mac)\b")
+_RE_WINDOWS = re.compile(r"\b(windows|win)\b")
+_RE_LINUX = re.compile(r"\b(linux|ubuntu|debian|arch|fedora)\b")
+
+# -- compiled pattern for socratic trigger matching (message start) --
+_IS_SOCRATIC_RE = re.compile(
+    r"^(write|create|make|build|give\s+me|show\s+me\s+how\s+to\s+write"
+    r"|can\s+you\s+(?:write|make))\b"
+)
 
 
 def run():
@@ -455,10 +467,9 @@ def run():
         ]
         try:
             resp = client.chat.completions.create(
-                model=model,
+                model="deepseek-v4-flash",
                 messages=extraction_msgs,
-                # Give plenty of room to avoid truncated JSON that fails to parse.
-                max_tokens=16384,
+                max_tokens=1024,
                 temperature=0.2,
                 response_format={"type": "json_object"},
                 stream=False,
@@ -493,12 +504,8 @@ def run():
     def _is_socratic_trigger(msg):
         """Return True if the message requests code without showing an attempt."""
         lower = msg.strip().lower()
-        triggers = (
-            "write", "create", "make", "build",
-            "give me", "show me how to write",
-            "can you write", "can you make",
-        )
-        if not any(lower.startswith(t) for t in triggers):
+        # Use compiled word‑start regex to avoid false positives on e.g. "writer's block"
+        if not _IS_SOCRATIC_RE.match(lower):
             return False
 
         # If the message already contains code evidence, skip the guard
@@ -836,11 +843,11 @@ def run():
         # ── OS detection (only until we know) ──────────────────────────────
         if known_os is None:
             lower_raw = raw.lower()
-            if "windows" in lower_raw or " win " in lower_raw or lower_raw.startswith("win "):
+            if _RE_WINDOWS.search(lower_raw):
                 known_os = "windows"
-            elif "macos" in lower_raw or "mac os" in lower_raw or " mac" in lower_raw or "osx" in lower_raw:
+            elif _RE_MACOS.search(lower_raw):
                 known_os = "macos"
-            elif any(k in lower_raw for k in ("linux", "ubuntu", "debian", "arch", "fedora")):
+            elif _RE_LINUX.search(lower_raw):
                 known_os = "linux"
             if known_os is not None:
                 console.print(f"[dim]OS detected: {known_os} — terminal commands will be tailored.[/dim]")
@@ -938,7 +945,11 @@ def run():
         # We retain at most the last MAX_TURNS * 2 user/assistant messages.
         keep_count = MAX_TURNS * 2 + 1  # +1 for the system prompt
         if len(messages) > keep_count:
-            messages = [messages[0]] + messages[-(MAX_TURNS * 2):]
+            new_messages = [messages[0]] + messages[-(MAX_TURNS * 2):]
+            # ensure the first non‑system message is a user turn
+            if len(new_messages) > 1 and new_messages[1]["role"] == "assistant":
+                new_messages = [new_messages[0]] + new_messages[2:]
+            messages = new_messages
             if not has_trimmed:
                 has_trimmed = True
                 console.print(
