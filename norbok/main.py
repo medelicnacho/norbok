@@ -123,14 +123,18 @@ def run():
     if cur_slot is not None and slot_data is not None:
         project = slot_data.get("project_name", "unknown")
         level = slot_data.get("coding_level", "unknown")
-        summary = slot_data.get("summary", "none")
-        shaky = ", ".join(slot_data.get("shaky_concepts", [])) or "none"
+        raw_summary = slot_data.get("summary") or ""
+        first_sentence = raw_summary.split(". ")[0] if ". " in raw_summary else raw_summary
+        shaky_ids = list((slot_data.get("shaky_concepts") or {}).keys())
+        shaky_count = len(shaky_ids)
+        if shaky_count > 10:
+            shaky_str = ", ".join(shaky_ids[:10]) + f"... and {shaky_count - 10} more"
+        else:
+            shaky_str = ", ".join(shaky_ids) or "none"
         session_info = (
-            f"\n\nCurrent session: slot {cur_slot}.\n"
-            f"Project: {project}.\n"
-            f"Coding level: {level}.\n"
-            f"Summary: {summary}.\n"
-            f"Shaky concepts: {shaky}.\n"
+            f"\n\nSlot {cur_slot}: {project} ({level}).\n"
+            f"Last session: {first_sentence}.\n"
+            f"Shaky ({shaky_count}): {shaky_str}.\n"
         )
         messages[0]["content"] += session_info
 
