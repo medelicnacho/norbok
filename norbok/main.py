@@ -669,6 +669,7 @@ def run():
                     turn_count = 0
                     shaky_concepts = {}
                     learned_concepts = {}
+                    curriculum_progress = {}
                     has_trimmed = False
                     console.print("[bold green]Session wiped. Fresh start >:3[/bold green]")
                 continue
