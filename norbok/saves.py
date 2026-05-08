@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from datetime import date
 
 SAVES_DIR = "saves"
@@ -61,7 +62,7 @@ def load_slot(n):
 
 def write_slot(n, data):
     """
-    Write save data to slot n (1‑5).
+    Write save data to slot n (1‑5) atomically to avoid corruption.
 
     *data* must be a dict containing at least some of the keys
     project_name, coding_level, summary, shaky_concepts, learned_concepts,
@@ -96,8 +97,20 @@ def write_slot(n, data):
         record["curriculum_progress"] = {}
 
     filepath = os.path.join(SAVES_DIR, f"slot_{n}.json")
-    with open(filepath, "w", encoding="utf-8") as fh:
-        json.dump(record, fh, indent=2)
+
+    # Atomic write via a temporary file in the same directory
+    fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix="slot_", dir=SAVES_DIR)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmpf:
+            json.dump(record, tmpf, indent=2)
+        os.replace(tmp_path, filepath)
+    except Exception:
+        # Clean up the temporary file on failure
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def list_slots():
