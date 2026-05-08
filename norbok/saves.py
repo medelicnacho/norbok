@@ -34,6 +34,47 @@ def _ensure_dir():
             )
 
 
+def _migrate_slot(n, data):
+    """Apply slot-level migrations and persist the result.
+
+    Returns the migrated data dict.
+    Any write failure is logged to stderr but does not prevent the
+    returned data from being used.
+    """
+    # Work on a copy to be safe.
+    migrated = dict(data)
+
+    # Ensure curriculum_progress exists.
+    if "curriculum_progress" not in migrated:
+        migrated["curriculum_progress"] = {}
+
+    # Ensure learned_concepts exists.
+    if "learned_concepts" not in migrated:
+        migrated["learned_concepts"] = {}
+
+    # Migrate old list-based shaky_concepts to the SRS dict format.
+    if isinstance(migrated.get("shaky_concepts"), list):
+        today_iso = date.today().isoformat()
+        old_list = migrated["shaky_concepts"]
+        migrated["shaky_concepts"] = {
+            concept: {
+                "added": today_iso,
+                "interval_days": 1,
+                "next_review": today_iso,
+                "history": []
+            }
+            for concept in old_list
+            if isinstance(concept, str)
+        }
+
+    try:
+        write_slot(n, migrated)
+    except Exception as e:
+        print(f"Warning: failed to write migrated slot {n}: {e}", file=sys.stderr)
+
+    return migrated
+
+
 def load_slot(n):
     """
     Load save data for slot n (1‑5).
@@ -54,32 +95,8 @@ def load_slot(n):
         with open(filepath, "r", encoding="utf-8") as fh:
             data = json.load(fh)
 
-        # Migrate older saves that lack curriculum_progress
-        if "curriculum_progress" not in data:
-            data["curriculum_progress"] = {}
-
-        # Migrate missing learned_concepts
-        if "learned_concepts" not in data:
-            data["learned_concepts"] = {}
-
-        # Migrate shaky_concepts from old list format to SRS dict format
-        if isinstance(data.get("shaky_concepts"), list):
-            today_iso = date.today().isoformat()
-            old_list = data["shaky_concepts"]
-            data["shaky_concepts"] = {
-                concept: {
-                    "added": today_iso,
-                    "interval_days": 1,
-                    "next_review": today_iso,
-                    "history": []
-                }
-                for concept in old_list
-                if isinstance(concept, str)
-            }
-            try:
-                write_slot(n, data)
-            except Exception:
-                pass
+        # Apply any slot-level migrations (and persist them).
+        data = _migrate_slot(n, data)
 
         return data
     except json.JSONDecodeError:
