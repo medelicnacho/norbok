@@ -859,6 +859,27 @@ def run():
 
                 continue
 
+            elif command == "setos":
+                valid_os = {"linux", "macos", "windows", "auto"}
+                if args_str is None or args_str not in valid_os:
+                    console.print("[red]Usage: /setos linux|macos|windows|auto[/red]")
+                else:
+                    if args_str == "auto":
+                        known_os = None
+                        console.print("[bold green]OS detection reset to auto (will try to detect again).[/bold green]")
+                    else:
+                        known_os = args_str
+                        console.print(f"[bold green]OS set to {known_os}.[/bold green]")
+                    if cur_slot is not None:
+                        try:
+                            save_local()
+                            console.print("[dim]OS persisted in the current slot.[/dim]")
+                        except Exception:
+                            console.print("[red]Failed to save OS. Use /save after selecting a slot.[/red]")
+                    else:
+                        console.print("[dim]No slot assigned — OS will not be saved. Use /save to persist later.[/dim]")
+                continue
+
             elif command == "code":
                 console.print(
                     "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
