@@ -189,8 +189,9 @@ def run():
             resp = client.chat.completions.create(
                 model=model,
                 messages=extraction_msgs,
-                max_tokens=512,
-                temperature=0,
+                max_tokens=4096,
+                temperature=0.2,
+                response_format={"type": "json_object"},
                 stream=False,
             )
             content = resp.choices[0].message.content.strip()
@@ -209,6 +210,7 @@ def run():
             data = json.loads(content)
         except json.JSONDecodeError:
             console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
+            print(f"[debug] raw was: {content[:800]!r}")
             return False
 
         write_slot(cur_slot, data)
