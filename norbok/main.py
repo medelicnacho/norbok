@@ -179,109 +179,6 @@ def run():
         pct = compute_percent(curriculum_progress)
         console.print(f"Python level: {pct}% — {len(shaky_concepts)} shaky concept(s)")
 
-    # ── session‑start quiz review ──
-    if shaky_concepts:
-        today = date.today().isoformat()
-        due = due_concepts(shaky_concepts, today)
-
-        if not due:
-            console.print("No concepts due for review today. >:3", style="dim green")
-        else:
-            n_quiz = min(len(due), 2)
-            console.print(
-                f"{len(due)} concept(s) due for review. Quick quiz on {n_quiz}? (y/N)"
-            )
-            ans = get_input().strip().lower()
-            if ans in ("y", "yes"):
-                for concept in due[:n_quiz]:
-                    run_quiz(concept, client, model,
-                             shaky_concepts, learned_concepts, cur_slot)
-                    if cur_slot is not None:
-                        slot_data = load_slot(cur_slot)
-                        if slot_data:
-                            shaky_concepts = slot_data.get("shaky_concepts", shaky_concepts)
-                            learned_concepts = slot_data.get("learned_concepts", learned_concepts)
-            else:
-                console.print("Skipping review for now. >:3", style="dim")
-
-    # ---- save_session: extract conversation info & persist to cur_slot ----
-    def save_session():
-        """Extract session info from the conversation and persist to cur_slot."""
-        if not messages:
-            console.print("[red]No conversation to extract from.[/red]")
-            return False
-
-        # Build a trimmed text of the latest exchanges
-        conv_lines = []
-        for msg in messages[1:]:               # skip system prompt
-            role = msg["role"]
-            content = msg["content"]
-            if role == "user":
-                conv_lines.append(f"Student: {content}")
-            elif role == "assistant":
-                conv_lines.append(f"Norbok: {content}")
-        full_text = "\n".join(conv_lines)
-
-        # Truncate wisely: keep first 1500 chars and last 4000 chars if total > 5500
-        if len(full_text) <= 5500:
-            conv_text = full_text
-        else:
-            prefix = full_text[:1500]
-            suffix = full_text[-4000:]
-            conv_text = (
-                prefix
-                + "\n[...middle of conversation truncated...]\n"
-                + suffix
-            )
-
-        extraction_msgs = [
-            {"role": "system", "content": "You are a helpful assistant that extracts structured data from a conversation. Only output valid JSON."},
-            {"role": "user", "content": (
-                "Based on the following conversation between a student and a coding mentor, output a JSON object with these keys:\n"
-                "project_name (string), coding_level (string), summary (string), shaky_concepts (list of strings).\n"
-                "coding_level should be one of beginner, intermediate, advanced.\n"
-                "summary should be a one-paragraph recap of what was covered.\n"
-                "shaky_concepts are concepts the student is struggling with.\n\n"
-                "Conversation:\n" + conv_text + "\n\n"
-                "Respond ONLY with valid JSON and nothing else."
-            )}
-        ]
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=extraction_msgs,
-                # Give plenty of room to avoid truncated JSON that fails to parse.
-                max_tokens=16384,
-                temperature=0.2,
-                response_format={"type": "json_object"},
-                stream=False,
-            )
-            content = resp.choices[0].message.content.strip()
-        except Exception as e:
-            console.print(f"[red]Extraction API call failed: {e}[/red]")
-            return False
-
-        # Strip markdown code fences if the model wrapped the JSON in them
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1]
-            content = content.rsplit("```", 1)[0].strip()
-
-        print(f"[autosave debug] raw output:\n{content!r}\n---")
-
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError:
-            console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
-            print(f"[debug] raw was: {content[:800]!r}")
-            return False
-
-        # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
-        data["shaky_concepts"] = shaky_concepts
-        data["learned_concepts"] = learned_concepts
-        write_slot(cur_slot, data)
-        console.print("[bold green]Session saved to slot[/bold green] >:3")
-        return True
-
     # ---- run_quiz: standalone quiz sub-loop ----
     def run_quiz(concept, client, model, shaky_concepts, learned_concepts, current_slot):
         """
@@ -506,6 +403,109 @@ def run():
                 write_slot(current_slot, data)
 
         return result
+
+    # ── session‑start quiz review ──
+    if shaky_concepts:
+        today = date.today().isoformat()
+        due = due_concepts(shaky_concepts, today)
+
+        if not due:
+            console.print("No concepts due for review today. >:3", style="dim green")
+        else:
+            n_quiz = min(len(due), 2)
+            console.print(
+                f"{len(due)} concept(s) due for review. Quick quiz on {n_quiz}? (y/N)"
+            )
+            ans = get_input().strip().lower()
+            if ans in ("y", "yes"):
+                for concept in due[:n_quiz]:
+                    run_quiz(concept, client, model,
+                             shaky_concepts, learned_concepts, cur_slot)
+                    if cur_slot is not None:
+                        slot_data = load_slot(cur_slot)
+                        if slot_data:
+                            shaky_concepts = slot_data.get("shaky_concepts", shaky_concepts)
+                            learned_concepts = slot_data.get("learned_concepts", learned_concepts)
+            else:
+                console.print("Skipping review for now. >:3", style="dim")
+
+    # ---- save_session: extract conversation info & persist to cur_slot ----
+    def save_session():
+        """Extract session info from the conversation and persist to cur_slot."""
+        if not messages:
+            console.print("[red]No conversation to extract from.[/red]")
+            return False
+
+        # Build a trimmed text of the latest exchanges
+        conv_lines = []
+        for msg in messages[1:]:               # skip system prompt
+            role = msg["role"]
+            content = msg["content"]
+            if role == "user":
+                conv_lines.append(f"Student: {content}")
+            elif role == "assistant":
+                conv_lines.append(f"Norbok: {content}")
+        full_text = "\n".join(conv_lines)
+
+        # Truncate wisely: keep first 1500 chars and last 4000 chars if total > 5500
+        if len(full_text) <= 5500:
+            conv_text = full_text
+        else:
+            prefix = full_text[:1500]
+            suffix = full_text[-4000:]
+            conv_text = (
+                prefix
+                + "\n[...middle of conversation truncated...]\n"
+                + suffix
+            )
+
+        extraction_msgs = [
+            {"role": "system", "content": "You are a helpful assistant that extracts structured data from a conversation. Only output valid JSON."},
+            {"role": "user", "content": (
+                "Based on the following conversation between a student and a coding mentor, output a JSON object with these keys:\n"
+                "project_name (string), coding_level (string), summary (string), shaky_concepts (list of strings).\n"
+                "coding_level should be one of beginner, intermediate, advanced.\n"
+                "summary should be a one-paragraph recap of what was covered.\n"
+                "shaky_concepts are concepts the student is struggling with.\n\n"
+                "Conversation:\n" + conv_text + "\n\n"
+                "Respond ONLY with valid JSON and nothing else."
+            )}
+        ]
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=extraction_msgs,
+                # Give plenty of room to avoid truncated JSON that fails to parse.
+                max_tokens=16384,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                stream=False,
+            )
+            content = resp.choices[0].message.content.strip()
+        except Exception as e:
+            console.print(f"[red]Extraction API call failed: {e}[/red]")
+            return False
+
+        # Strip markdown code fences if the model wrapped the JSON in them
+        if content.startswith("```"):
+            content = content.split("\n", 1)[-1]
+            content = content.rsplit("```", 1)[0].strip()
+
+        print(f"[autosave debug] raw output:\n{content!r}\n---")
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
+            print(f"[debug] raw was: {content[:800]!r}")
+            return False
+
+        # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
+        data["shaky_concepts"] = shaky_concepts
+        data["learned_concepts"] = learned_concepts
+        write_slot(cur_slot, data)
+        console.print("[bold green]Session saved to slot[/bold green] >:3")
+        return True
 
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
