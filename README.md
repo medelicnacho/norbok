@@ -1,37 +1,53 @@
 # norbok >:3
-### project focused Socratic code tutor
+### project‑first Socratic code mentor — built for the world, not for a wallet
 
-A local AI tutor that tracks what you struggle with, quizzes you at the right moment,
-and teaches by asking questions — not handing you answers.
+A terminal‑based AI tutor that teaches by asking questions, tracks what you
+struggle with (spaced repetition), quizzes you when you need it, and never
+just hands you an answer.  Everything connects to *your* real project.
 
-Built around your project. Runs on your machine. ~$5/month in API costs.
+Built entirely on DeepSeek.  No accounts, no cloud, no telemetry.
+Runs on your machine.  Roughly **$5/month** in API costs.
 
 ---
 
-## what makes it different
+## what makes norbok different
 
-**Socratic by default** — Norbok asks what you've tried before explaining.
-You learn by producing, not consuming.
+**Socratic by design** — before explaining anything, Norbok asks what you've
+tried.  The socratic guard is baked into every response; it cannot be
+overridden by the student.  You learn by producing, not by reading.
 
-**Tracks what trips you up** — every concept you struggle with goes into a shaky list.
-Norbok quizzes you at the right intervals using spaced repetition so you actually remember it.
-Concepts you consistently nail graduate off the list. Ones you keep missing come back sooner.
+**Memory that sticks** — every concept you or the AI identifies as shaky
+goes into a spaced‑repetition system.  Norbok quizzes you at the right
+intervals.  Concepts you nail graduate off the list; concepts you keep
+missing come back sooner.
 
-**Project-first** — before anything else it asks what you want to build and what you already know.
-Everything it teaches connects to your actual project, not abstract exercises.
+**Checkpoints, not lectures** — after 2–3 confirmed concepts, Norbok issues
+a **CHECKPOINT**: a small function challenge (under 15 lines) that you write
+with `/code`.  After submission, it reviews your work part by part and asks
+*what would break if you removed one specific line?* – real understanding,
+not parroting.
 
-**Local and private** — no account, no cloud, no data leaving your machine.
-Your conversations and progress live in JSON files on your computer.
+**Project‑first mentoring** — the very first message asks what you want to
+build and what you already know.  Everything Norbok teaches stays anchored
+to your actual project.  Roadmaps have numbered steps; progress is announced
+step by step.
 
-**Python curriculum built in** — track your progress from 0–100% as you demonstrate mastery.
-Topics unlock as prerequisites are met.
+**Curriculum with depth** — a 20‑topic Python curriculum (variables →
+async/await → advanced patterns) tracks your real progress (0–100%).
+Topics unlock only when all prerequisites are solid.
+
+**OS‑aware** — terminal commands are given for macOS, Linux, or Windows.
+Norbok auto‑detects your OS or you can set it with `/setos`.
+
+**Local & private** — your conversations, SRS data, and curriculum progress
+live in JSON files on your machine.  Delete them and you start fresh.
 
 ---
 
 ## requirements
 
 - Python 3.10+
-- A DeepSeek API key — free at https://platform.deepseek.com/api_keys
+- A DeepSeek API key – free at <https://platform.deepseek.com/api_keys>
   (new accounts get 5 million free tokens, no credit card needed)
 
 ---
@@ -40,102 +56,128 @@ Topics unlock as prerequisites are met.
 
 ```bash
 pip install norbok
-```
 
-or clone and install locally:
+Or clone and install locally:
 
-```bash
 git clone https://github.com/medelicnacho/norbok.git
 cd norbok
 pip install -e .
-```
 
----
-
-## run
-
-```bash
+run
 norbok
-```
 
-First run asks for your DeepSeek API key and saves it to a local `.env` file.
-You won't need to do it again.
+The first run asks for your DeepSeek API key and saves it to a local
+.env file inside ~/.config/norbok/ (Linux/macOS) or
+%APPDATA%/norbok/ (Windows). You never have to re‑enter it.
 
----
+save slots & session resumption
 
-## commands
+Norbok keeps 5 save slots. Each slot stores:
 
-| command | what it does |
-|---|---|
-| `/quiz` | quiz yourself on a concept due for review today |
-| `/quiz <concept>` | quiz on a specific concept |
-| `/curriculum` | view Python progress (0–100%) and suggested next topics |
-| `/curriculum <topic>` | mark a topic as in progress |
-| `/progress` | see your spaced repetition schedule — what's due, what's learned |
-| `/think` | enable deep reasoning mode (slower, smarter) |
-| `/nothink` | disable reasoning mode |
-| `/code` | open multiline code editor with syntax highlighting |
-| `/switch` | switch model mid-session |
-| `/delete_session` | wipe current session memory and slot |
-| `/exit` | save and quit |
+    what you’re building and your coding level (beginner/intermediate/advanced)
 
----
+    a summary of the last session
 
-## models
+    all shaky concepts with spaced‑repetition scheduling
 
-| model | note |
-|---|---|
-| `deepseek-v4-pro` | smartest, slower — reasoning mode available |
-| `deepseek-v4-flash` | fast and cheap — good for most sessions |
+    your Python curriculum progress
 
----
+    your known operating system
 
-## how the memory works
+When you load a slot, Norbok checks which concepts are due for review and
+gently quizzes you before the session starts. It remembers who you are,
+where you left off, and what still needs work.
+commands
+command	what it does
+/quiz	quiz on a shaky concept due today (random choice)
+/quiz <concept>	quiz on a specific concept
+/curriculum	show full Python progress (0–100%) and suggested topics
+/curriculum <topic>	mark a topic as in progress
+/progress	spaced‑repetition status — what’s due, what’s learned
+/think	enable deep reasoning mode (slower, smarter)
+/nothink	disable reasoning mode
+/switch	change model mid‑session
+/code	open multiline Python editor (Ctrl+D to submit)
+/setos linux/macos/windows/auto	set or auto‑detect your operating system
+/save	save current session to current slot
+/saveas	pick a different slot to save into (with overwrite guard)
+/delete_session	wipe current conversation and assigned slot
+/exit	save (if a slot is assigned) and quit
+models
+model	note
+deepseek-v4-pro	smartest, slower — reasoning mode available
+deepseek-v4-flash	fast and cheap — great for day‑to‑day
 
-Norbok saves up to 5 session slots. Each slot stores:
+The model names above are the identifiers used in the code; they may map
+to specific DeepSeek model IDs depending on your installation.
+how the spaced repetition works
 
-- what you're building and your current coding level
-- a summary of what was covered last session
-- your shaky concepts with spaced repetition scheduling
-- your Python curriculum progress
+Every concept in your shaky list has an interval that adjusts after a quiz:
 
-When you load a slot, Norbok checks which concepts are due for review and quizzes
-you before the session starts. The quiz formats adapt to the concept — you might be
-asked to predict output, write a function from scratch, find a bug, or explain something
-back in your own words.
+    nailed it → interval doubles (review in 2 days → 4 → 8 …)
 
----
+    partial → interval grows slightly slower
 
-## the spaced repetition system
+    missed it → interval resets to 1 day
 
-Concepts in your shaky list each have a review interval that adjusts based on quiz results:
+Once a concept has been recalled correctly over a 30‑day window, it
+graduates off the shaky list entirely. Use /progress to see where
+everything stands.
+how the curriculum progress works
 
-- nail it → interval doubles (review in 2 days, then 4, then 8...)
-- partial → interval grows slowly
-- miss it → resets to 1 day
+The Python curriculum has 20 topics in dependency order. Topics are marked
+complete, in_progress, or not_started. Your overall percentage is the
+pct of the highest topic whose all transitive prerequisites are also
+complete. No cheating — you can’t jump ahead with gaps.
+checkpoint system (automatic)
 
-After consistent correct recall over 30+ days a concept graduates off the shaky list entirely.
-Use `/progress` to see where everything stands.
+When Norbok sees you’ve understood 2–3 concepts, it will start a message
+with CHECKPOINT: and give you a small coding challenge (under 15 lines).
 
----
+    Write your solution with /code (or paste a code block).
 
-## data
+    Norbok will then review it line by line, then ask a “what breaks if…”
+    question that you must answer before moving on.
 
-Everything lives locally in your project folder:
+    No new checkpoint is issued until the previous one is fully resolved.
+    
+    data
 
-```
-saves/        ← session slots (JSON)
-.env          ← your API key
-```
+Everything is stored in your platform‑specific config directory:
+text
 
-Delete either to start fresh. Nothing is stored anywhere else.
+Linux/macOS:   ~/.config/norbok/
+Windows:       %APPDATA%\norbok\
 
----
+Inside that folder you will find:
 
-## why not just use ChatGPT
+    slot_1.json … slot_5.json – session save slots
 
-ChatGPT doesn't know what you're building. It doesn't remember what trips you up.
-It doesn't quiz you at the right moment, track whether you're actually getting better,
-or push back when you ask for an answer you should figure out yourself.
+    .env – your DeepSeek API key
 
-Norbok does all of that. And it costs about $5/month.
+Delete any slot file to free it; delete .env to go through onboarding again.
+vision & roadmap
+
+    Local offline version: distill Norbok into a small model that runs on
+    an old laptop or a Raspberry Pi, no internet required.
+
+    Multilingual: Spanish first, then gradually more languages, so that
+    code can be taught in the student’s mother tongue.
+
+    Always free, always private: no monetisation, no analytics, no lock‑in.
+    A gift for anyone who wants to learn Python, wherever they are.
+
+why not just use ChatGPT
+
+ChatGPT doesn’t remember what you’re building, what you struggle with, or how
+long it’s been since you last practiced a concept. It won’t refuse to give
+you the answer when you should figure it out yourself. Norbok does all of
+that – it’s a mentor, not an autocomplete – and it costs less than a cup of
+coffee a month.
+
+    May Norbok benefit all sentient beings in the ten directions. >:3
+
+
+
+
+
