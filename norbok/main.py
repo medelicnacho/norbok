@@ -182,6 +182,11 @@ def run():
             console.print(f"[red]Extraction API call failed: {e}[/red]")
             return False
 
+        # Strip markdown code fences if the model wrapped the JSON in them
+        if content.startswith("```"):
+            content = content.split("\n", 1)[-1]
+            content = content.rsplit("```", 1)[0].strip()
+
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
