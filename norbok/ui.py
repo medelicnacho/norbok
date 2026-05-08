@@ -118,13 +118,13 @@ class StreamRenderer:
                 continue
 
     def _flush_prose(self):
-        """Render accumulated prose tokens as blue Markdown."""
+        """Render accumulated prose tokens as Markdown."""
         if not self.prose_buffer:
             return
         prose = "".join(self.prose_buffer)
         self.prose_buffer = []
         md = Markdown(prose)
-        console.print(md, style="blue")
+        console.print(md)
 
     def _card(self):
         code = "".join(self.code_buffer)
