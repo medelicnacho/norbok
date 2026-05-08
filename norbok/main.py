@@ -210,7 +210,8 @@ def run():
             resp = client.chat.completions.create(
                 model=model,
                 messages=extraction_msgs,
-                max_tokens=4096,
+                # Give plenty of room to avoid truncated JSON that fails to parse.
+                max_tokens=16384,
                 temperature=0.2,
                 response_format={"type": "json_object"},
                 stream=False,
