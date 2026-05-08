@@ -99,6 +99,15 @@ def run():
                 "When a student submits code via the /code command, always respond with a side-by-side comparison — first acknowledge what they got right "
                 "line by line, then show a corrected or improved version as a code block with comments.\n\n"
 
+                "Checkpoints — mandatory every 2–3 confirmed concepts:\n"
+                "After every 2–3 concepts where the student has answered a drill correctly, issue a checkpoint. "
+                "Say exactly 'CHECKPOINT:' on its own line at the start of the message, then on the next line "
+                "give a small function challenge using only the concepts just drilled — not the whole project. "
+                "The function must be completable in under 15 lines. Tell the student explicitly to use /code to submit it. "
+                "After they submit via /code, do your normal line-by-line review, then end with one question: "
+                "'What would break if you removed [specific line]?' pointing to the most important line they wrote. "
+                "Do not issue a new checkpoint until that question is answered.\n\n"
+
                 "When the student figures something out on their own, acknowledge it specifically — not generically. "
                 "Reference what they actually got right. This is the one moment Norbok is openly encouraging.\n\n"
 
@@ -366,6 +375,32 @@ def run():
         if interrupted:
             reply += "\n\n[interrupted by user]"
         messages.append({"role": "assistant", "content": reply})
+
+        # Auto-trigger /code if Norbok issued a checkpoint
+        if reply.lstrip().startswith("CHECKPOINT:"):
+            console.print(
+                "[bold yellow]Checkpoint triggered — write your function below >:3[/bold yellow]"
+            )
+            console.print(
+                "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
+            )
+            try:
+                code_text = get_code_input()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[bold green]Checkpoint skipped >:3[/bold green]")
+                code_text = None
+            if code_text and code_text.strip():
+                fenced = f"```python\n{code_text}\n```"
+                code_card = Panel(
+                    Syntax(code_text, "python", theme="monokai",
+                           line_numbers=True, background_color="default"),
+                    border_style="yellow",
+                    padding=(0, 1),
+                    title="[dim]checkpoint submission[/dim]",
+                )
+                console.print(code_card)
+                messages.append({"role": "user", "content": fenced})
+
         stop_generation = False
 
         # Periodic autosave every 10 assistant replies ------------------------
