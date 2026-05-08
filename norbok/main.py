@@ -140,6 +140,15 @@ def run():
         )
         messages[0]["content"] += session_info
 
+        # One-time beginner reinforcement for returning students
+        if slot_data.get("coding_level", "").strip().lower() == "beginner":
+            messages[0]["content"] += (
+                "\n\n[Student is a beginner. Before writing any project code, verify they "
+                "can do three things: run a Python script from the terminal, use a variable, "
+                "and call print() or input(). Ask them to demonstrate each one. Drill each "
+                "before moving on. Only start project code once all three are confirmed.]"
+            )
+
     print_welcome()
 
     if curriculum_progress or shaky_concepts:
