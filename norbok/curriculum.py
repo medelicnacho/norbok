@@ -71,6 +71,9 @@ def next_topics(progress: dict, n: int = 3) -> list[dict]:
             continue
         if all(p in complete for p in topic["prereqs"]):
             candidates.append(topic)
+    # Sort defensively: while TOPICS is ordered by pct, we sort here
+    # to ensure correct order even if ordering changes in the future.
+    candidates.sort(key=lambda t: t["pct"])
     return candidates[:n]
 
 
