@@ -18,7 +18,10 @@ MAX_TURNS = 20
 
 
 def run():
-    run_onboarding()
+    try:
+        run_onboarding()
+    except Exception as e:
+        console.print(f"[yellow]Onboarding failed ({e}), falling back to manual setup.[/yellow]")
     check_api_key()
     model = pick_model()
 

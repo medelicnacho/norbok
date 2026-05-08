@@ -3,8 +3,16 @@ import os
 
 def check_api_key():
     if not os.environ.get("DEEPSEEK_API_KEY"):
-        raise SystemExit("Error: DEEPSEEK_API_KEY environment variable not set.")
-
+        raise SystemExit(
+            "\nError: No DeepSeek API key found.\n\n"
+            "To fix this:\n"
+            "  1. Go to https://platform.deepseek.com/api_keys\n"
+            "  2. Sign up / log in and click 'Create API Key'\n"
+            "  3. Copy the key, then either:\n"
+            "       a) Create a .env file in this folder with:  DEEPSEEK_API_KEY=sk-...\n"
+            "       b) Or run:  export DEEPSEEK_API_KEY=sk-...\n"
+            "  4. Re-run norbok\n"
+        )
 
 def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
          thinking=False):
