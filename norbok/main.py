@@ -555,32 +555,24 @@ def run():
             )
         except openai.APIError as e:
             renderer.end()
-            if user_msg_index is not None and user_msg_index < len(messages):
-                messages.pop(user_msg_index)
             console.print(
                 f"[red]API error: {e}. Something went wrong on their side. Let's try again >:3[/red]"
             )
             return None, None
         except openai.APIConnectionError as e:
             renderer.end()
-            if user_msg_index is not None and user_msg_index < len(messages):
-                messages.pop(user_msg_index)
             console.print(
                 f"[red]Connection error: {e}. Check your network and try again >:3[/red]"
             )
             return None, None
         except openai.RateLimitError as e:
             renderer.end()
-            if user_msg_index is not None and user_msg_index < len(messages):
-                messages.pop(user_msg_index)
             console.print(
                 f"[red]Rate limit exceeded: {e}. Wait a moment and try again >:3[/red]"
             )
             return None, None
         except Exception as e:
             renderer.end()
-            if user_msg_index is not None and user_msg_index < len(messages):
-                messages.pop(user_msg_index)
             console.print(
                 f"[red]Unexpected error: {e}. Something went wrong. Let's try again >:3[/red]"
             )
@@ -891,6 +883,9 @@ def run():
             lambda: stop_generation, user_msg_index,
         )
         if reply is None:
+            # API call failed – remove the user message from the main conversation list
+            if user_msg_index is not None and len(messages) > user_msg_index:
+                messages.pop(user_msg_index)
             continue
 
         messages.append({"role": "assistant", "content": reply})
@@ -927,9 +922,12 @@ def run():
                     client, messages, model, use_thinking, renderer_check,
                     lambda: stop_generation, len(messages)-1,
                 )
-                if reply_check is not None:
-                    messages.append({"role": "assistant", "content": reply_check})
-                    stop_generation = False
+                if reply_check is None:
+                    # API call failed – remove the checkpoint submission message
+                    messages.pop()
+                    continue
+                messages.append({"role": "assistant", "content": reply_check})
+                stop_generation = False
 
         # Periodic autosave every 10 assistant replies ------------------------
         turn_count += 1
