@@ -21,34 +21,47 @@ TOPICS = [
     {"id": "patterns",         "title": "Advanced Patterns",        "pct": 100,"prereqs": ["packaging"]},
 ]
 
+
+# Pre‑compute the set of **all** prerequisites (direct + transitive) for each topic.
+# Topics are ordered so that every prerequisite appears earlier in TOPICS,
+# allowing a simple forward pass.
+_ANCESTORS = {}
+for topic in TOPICS:
+    ancestors = set()
+    for prereq_id in topic["prereqs"]:
+        ancestors.add(prereq_id)
+        ancestors.update(_ANCESTORS.get(prereq_id, set()))
+    _ANCESTORS[topic["id"]] = ancestors
+
+
 def get_topic(topic_id: str) -> dict | None:
     return next((t for t in TOPICS if t["id"] == topic_id), None)
+
 
 def compute_percent(progress: dict) -> int:
     """
     Given a progress dict {topic_id: 'not_started'|'in_progress'|'complete'},
     return the integer percentage of Python mastered.
-    
+
     Only 'complete' topics count toward the score.
     The percentage returned is the pct of the highest completed topic
-    whose prereqs are all also complete — i.e. no gaps.
-    
+    whose prereqs are **all** also complete — i.e. **transitively** no gaps.
+
     If nothing is complete, return 0.
     """
     complete = {tid for tid, status in progress.items() if status == "complete"}
-    
     highest = 0
     for topic in TOPICS:
         if topic["id"] in complete:
-            all_prereqs_done = all(p in complete for p in topic["prereqs"])
-            if all_prereqs_done:
+            if _ANCESTORS[topic["id"]].issubset(complete):
                 highest = max(highest, topic["pct"])
     return highest
+
 
 def next_topics(progress: dict, n: int = 3) -> list[dict]:
     """
     Return up to n topics the student should work on next:
-    topics whose prereqs are all complete but are not yet complete 
+    topics whose prereqs are all complete but are not yet complete
     themselves, sorted by pct ascending.
     """
     complete = {tid for tid, status in progress.items() if status == "complete"}
@@ -59,3 +72,31 @@ def next_topics(progress: dict, n: int = 3) -> list[dict]:
         if all(p in complete for p in topic["prereqs"]):
             candidates.append(topic)
     return candidates[:n]
+
+
+if __name__ == "__main__":
+    # Verify transitive prerequisite checking (no gaps)
+    # functions: ["loops"], loops: ["control_flow"], control_flow: ["variables"]
+    # variables has no prerequisites.
+
+    # Only mark functions complete -> 0% (missing loops, control_flow, variables)
+    progress = {"functions": "complete", "lists": "complete"}
+    pct = compute_percent(progress)
+    assert pct == 0, f"Expected 0% for gaps, got {pct}%"
+
+    # Add variables -> 5% (variables counts as highest complete with no missing ancestors)
+    progress["variables"] = "complete"
+    pct = compute_percent(progress)
+    assert pct == 5, f"Expected 5%, got {pct}%"
+
+    # Add control_flow -> 10% (variables already counted, control_flow higher)
+    progress["control_flow"] = "complete"
+    pct = compute_percent(progress)
+    assert pct == 10, f"Expected 10%, got {pct}%"
+
+    # Add loops -> 15%
+    progress["loops"] = "complete"
+    pct = compute_percent(progress)
+    assert pct == 15, f"Expected 15%, got {pct}%"
+
+    print("All curriculum transitive prerequisite tests passed.")
