@@ -26,12 +26,19 @@ def add_concept(shaky, concept_id, today=None):
     return new_shaky
 
 
+VALID_RESULTS = {"correct", "partial", "wrong", "gave_up", "skipped"}
+
+
 def record_result(shaky, concept_id, result, today=None):
     """
     Record a quiz result and update spacing.
 
     Returns a deep copy; original is never modified.
     """
+    # Ignore invalid / None results – do not touch history at all.
+    if result is None or result not in VALID_RESULTS:
+        return shaky.copy()
+
     today_iso = today if today else date.today().isoformat()
     shaky_copy = copy.deepcopy(shaky)
 
