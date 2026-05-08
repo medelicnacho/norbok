@@ -10,6 +10,7 @@ from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model, pick_session
 from .saves import load_slot, write_slot, list_slots
+from .onboarding import run_onboarding
 
 THINKING_MODELS = {"deepseek-v4-pro"}
 
@@ -17,6 +18,7 @@ MAX_TURNS = 20
 
 
 def run():
+    run_onboarding()
     check_api_key()
     model = pick_model()
 
