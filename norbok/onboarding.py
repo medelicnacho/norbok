@@ -20,7 +20,9 @@ ENV_FILE = str(
 
 
 def _ensure_data_dir():
-    Path(ENV_FILE).parent.mkdir(parents=True, exist_ok=True)
+    parent = Path(ENV_FILE).parent
+    parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(str(parent), 0o700)
 
 
 def _load_env_file():
