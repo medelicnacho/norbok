@@ -123,8 +123,8 @@ def run():
 
     print_welcome()
 
-    # ---- extraction & autosave helper (defined inside run) ------------
-    def _extract_and_save():
+    # ---- save_session: extract conversation info & persist to cur_slot ----
+    def save_session():
         """Extract session info from the conversation and persist to cur_slot."""
         if not messages:
             console.print("[red]No conversation to extract from.[/red]")
@@ -179,6 +179,7 @@ def run():
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
     thinking_user_override = False
+    turn_count = 0   # used for periodic saves every 10 assistant replies
 
     while True:
         try:
@@ -209,7 +210,7 @@ def run():
                 else:
                     console.print("[bold cyan]Saving session...[/bold cyan]")
                     try:
-                        success = _extract_and_save()
+                        success = save_session()
                         if not success:
                             console.print("[red]Save failed. You can try again later.[/red]")
                     except Exception:
@@ -334,6 +335,15 @@ def run():
         messages.append({"role": "assistant", "content": reply})
         stop_generation = False
 
+        # Periodic autosave every 10 assistant replies ------------------------
+        turn_count += 1
+        if cur_slot is not None and turn_count % 10 == 0:
+            console.print("[dim]Periodic autosave...[/dim]")
+            try:
+                save_session()
+            except Exception:
+                console.print("[red]Periodic autosave failed.[/red]")
+
         # Cap conversation history to keep context size in check.
         # The system prompt is always kept (messages[0]).
         # We retain at most the last MAX_TURNS * 2 user/assistant messages.
@@ -351,7 +361,7 @@ def run():
     if cur_slot is not None:
         console.print("[dim]Autosaving session...[/dim]")
         try:
-            if not _extract_and_save():
+            if not save_session():
                 console.print("[red]Autosave failed. You can still use /save later.[/red]")
         except Exception as e:
             console.print(f"[red]Autosave error: {e}[/red]")
