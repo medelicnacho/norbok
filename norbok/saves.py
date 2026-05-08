@@ -79,7 +79,7 @@ def _migrate_slot(n, data):
     return migrated
 
 
-def load_slot(n):
+def load_slot(n, migrate=True):
     """
     Load save data for slot n (1‑5).
 
@@ -87,6 +87,10 @@ def load_slot(n):
         slot_number, project_name, coding_level, summary, shaky_concepts,
         learned_concepts, curriculum_progress
     or None if the slot does not exist or contains corrupt data.
+
+    If migrate is True (the default), applies any on-disk migrations
+    and writes them back. Set migrate=False for read-only access
+    (e.g. when listing slots).
     """
     if n < 1 or n > NUM_SLOTS:
         raise ValueError(f"Slot number must be between 1 and {NUM_SLOTS} (inclusive)")
@@ -99,8 +103,9 @@ def load_slot(n):
         with open(filepath, "r", encoding="utf-8") as fh:
             data = json.load(fh)
 
-        # Apply any slot-level migrations (and persist them).
-        data = _migrate_slot(n, data)
+        # Apply any slot-level migrations (and persist them) only if requested.
+        if migrate:
+            data = _migrate_slot(n, data)
 
         return data
     except json.JSONDecodeError:
@@ -184,7 +189,7 @@ def list_slots():
     """
     result = []
     for n in range(1, NUM_SLOTS + 1):
-        data = load_slot(n)
+        data = load_slot(n, migrate=False)
         if data is not None:
             result.append({"slot": n, "status": "filled", "data": data})
         else:
