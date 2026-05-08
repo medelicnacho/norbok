@@ -198,8 +198,7 @@ def run():
         """
         Generate a quiz question, run hints/grading sub-loop, mutate
         shaky_concepts and learned_concepts via SRS, and persist if a slot is assigned.
-        Returns the result string.  Does NOT print the final summary line;
-        the caller is responsible for that.
+        Returns (result, updated_shaky_concepts, updated_learned_concepts).
         """
         # Ensure concept exists in SRS tracking
         shaky_concepts = add_concept(shaky_concepts, concept)
@@ -240,7 +239,7 @@ def run():
             content = resp.choices[0].message.content.strip()
         except Exception as e:
             console.print(f"[red]Quiz generation failed: {e}[/red]")
-            return "failed"
+            return "failed", shaky_concepts, learned_concepts
 
         # Strip fences if present
         if content.startswith("```"):
@@ -251,7 +250,7 @@ def run():
             quiz_data = json.loads(content)
         except json.JSONDecodeError:
             console.print("[red]Quiz JSON malformed. Try again later.[/red]")
-            return "failed"
+            return "failed", shaky_concepts, learned_concepts
 
         # ── display question ──
         console.print(
@@ -368,6 +367,9 @@ def run():
                 result = "wrong"
                 break
 
+        if result is None:
+            return "failed", shaky_concepts, learned_concepts
+
         # ── SRS update ──
         shaky_concepts = record_result(shaky_concepts, concept, result)
         shaky_concepts, learned_concepts, graduated = graduate_concepts(
@@ -416,7 +418,7 @@ def run():
                 data["learned_concepts"] = learned_concepts
                 write_slot(current_slot, data)
 
-        return result
+        return result, shaky_concepts, learned_concepts
 
     # ── session‑start quiz review ──
     if shaky_concepts:
@@ -433,13 +435,10 @@ def run():
             ans = get_input().strip().lower()
             if ans in ("y", "yes"):
                 for concept in due[:n_quiz]:
-                    run_quiz(concept, client, model,
-                             shaky_concepts, learned_concepts, cur_slot)
-                    if cur_slot is not None:
-                        slot_data = load_slot(cur_slot)
-                        if slot_data:
-                            shaky_concepts = slot_data.get("shaky_concepts", shaky_concepts)
-                            learned_concepts = slot_data.get("learned_concepts", learned_concepts)
+                    result, shaky_concepts, learned_concepts = run_quiz(
+                        concept, client, model,
+                        shaky_concepts, learned_concepts, cur_slot
+                    )
             else:
                 console.print("Skipping review for now. >:3", style="dim")
 
@@ -733,7 +732,9 @@ def run():
                         continue
                     concept = random.choice(list(shaky_concepts.keys()))
 
-                result = run_quiz(concept, client, model, shaky_concepts, learned_concepts, cur_slot)
+                result, shaky_concepts, learned_concepts = run_quiz(
+                    concept, client, model, shaky_concepts, learned_concepts, cur_slot
+                )
                 console.print(f"[bold]Quiz result: {result}[/bold]")
                 continue
 
