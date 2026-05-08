@@ -549,6 +549,7 @@ def run():
             continue
 
         raw = user_input.strip()
+        _code_submission = False  # reset each turn
 
         # Skip blank input
         if not raw:
@@ -800,7 +801,8 @@ def run():
                 console.print(code_card)
 
                 raw = fenced
-                # Fall through to regular message handling below
+                # Fall through to regular message handling below (flag for injection)
+                _code_submission = True
 
             else:
                 # Unknown slash‑command – just warn and ignore
@@ -811,18 +813,24 @@ def run():
         messages.append({"role": "user", "content": raw})
         user_msg_index = len(messages) - 1
 
-        # ---- per‑turn Socratic guard --------------------------------------
+        # ---- per‑turn system injections (Socratic guard + code review) ----
+        extra_instruction = ""
         if _is_socratic_trigger(raw):
-            socratic_instruction = (
+            extra_instruction += (
                 "\n[Student is asking you to write code without showing an attempt. "
                 "Do not write the code. Ask what they have tried first.]"
             )
-            # Create a temporary conversation list that adds the instruction
-            # to the system prompt for this turn only.
-            msgs_for_turn = messages[:]       # shallow copy
-            # Replace the system message with a copy that has the extra note
+        if _code_submission:
+            extra_instruction += (
+                "\n\n[Student submitted code via /code. Acknowledge what they got right, "
+                "part by part. Then show a corrected or improved version as a code block "
+                "with a comment above every line. End by asking: what would break if you "
+                "removed [the most important line they wrote]?]"
+            )
+        if extra_instruction:
+            msgs_for_turn = messages[:]
             sys_copy = dict(msgs_for_turn[0])
-            sys_copy["content"] = msgs_for_turn[0]["content"] + socratic_instruction
+            sys_copy["content"] = msgs_for_turn[0]["content"] + extra_instruction
             msgs_for_turn[0] = sys_copy
         else:
             msgs_for_turn = messages
