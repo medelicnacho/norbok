@@ -238,6 +238,191 @@ def run():
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
 
+    # ---- run_quiz: standalone quiz sub-loop ----
+    def run_quiz(concept, client, model, shaky_concepts, current_slot):
+        """
+        Generate a quiz question, run hints/grading sub-loop, mutate
+        shaky_concepts and persist if a slot is assigned.
+        Returns the result string.  Does NOT print the final summary line;
+        the caller is responsible for that.
+        """
+        # ── generate question via API ──
+        quiz_sys = (
+            "You are a coding quiz generator. Given a concept, pick the best "
+            "question format and generate one question. Rules:\n"
+            "- behavior/scope/mutation/async/references → PREDICT: show code, "
+            "ask what it prints or returns\n"
+            "- syntax/patterns/comprehensions/decorators → PRODUCE: ask student "
+            "to write code from scratch or complete a partial function\n"
+            "- debugging-prone concepts like async/generators/recursion → DEBUG: "
+            "show broken code, ask them to find and fix it\n"
+            "- purely conceptual/definitional → EXPLAIN\n\n"
+            "Respond ONLY with valid JSON, no fences, no preamble:\n"
+            "{\n"
+            "  \"format\": \"predict|produce|debug|explain\",\n"
+            "  \"question\": \"<full question text with any code snippet>\",\n"
+            "  \"answer\": \"<correct answer or solution>\",\n"
+            "  \"hints\": [\"<hint 1>\", \"<hint 2>\"]\n"
+            "}"
+        )
+        quiz_usr = f"Generate a quiz question for: {concept}"
+
+        try:
+            resp = client.chat.completions.create(
+                model="deepseek-v4-flash",
+                messages=[
+                    {"role": "system", "content": quiz_sys},
+                    {"role": "user", "content": quiz_usr},
+                ],
+                max_tokens=1024,
+                temperature=0.4,
+                response_format={"type": "json_object"},
+                stream=False,
+            )
+            content = resp.choices[0].message.content.strip()
+        except Exception as e:
+            console.print(f"[red]Quiz generation failed: {e}[/red]")
+            return "failed"
+
+        # Strip fences if present
+        if content.startswith("```"):
+            content = content.split("\n", 1)[-1]
+            content = content.rsplit("```", 1)[0].strip()
+
+        try:
+            quiz_data = json.loads(content)
+        except json.JSONDecodeError:
+            console.print("[red]Quiz JSON malformed. Try again later.[/red]")
+            return "failed"
+
+        # ── display question ──
+        console.print(
+            f"[bold yellow]📝  Quiz: {concept}  [{quiz_data.get('format', '?')}][/bold yellow]"
+        )
+        console.print()
+        console.print(quiz_data.get("question", ""))
+        console.print()
+        console.print("[dim](answer below, or type /hint, or /skip to bail)[/dim]")
+
+        # ── quiz sub-loop ──
+        hint_count = 0
+        result = None
+        quiz_attempt = 0
+
+        while True:
+            ans = get_input().strip()
+            if not ans:
+                continue
+
+            if ans == "/hint":
+                hints = quiz_data.get("hints", [])
+                if hint_count < 2 and hint_count < len(hints):
+                    console.print(f"[dim]Hint {hint_count+1}:[/dim] {hints[hint_count]}")
+                    hint_count += 1
+                else:
+                    console.print(f"[bold red]Here's the answer:[/bold red] {quiz_data['answer']}")
+                    result = "gave_up"
+                    break
+                continue
+
+            if ans == "/skip":
+                result = "skipped"
+                break
+
+            # ── grade the answer ──
+            student_answer = ans
+            grade_msgs = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are grading a coding quiz answer. Be strict but fair. "
+                        "Respond ONLY with valid JSON, no fences:\n"
+                        "{'result': 'correct|partial|wrong',\n"
+                        " 'feedback': '<one concise sentence>',\n"
+                        " 'explanation': '<brief explanation, only include if wrong or partial>'}"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Concept: {concept}\n"
+                        f"Question: {quiz_data.get('question', '')}\n"
+                        f"Expected answer: {quiz_data.get('answer', '')}\n"
+                        f"Student answered: {student_answer}"
+                    ),
+                },
+            ]
+
+            try:
+                resp_grade = client.chat.completions.create(
+                    model="deepseek-v4-flash",
+                    messages=grade_msgs,
+                    max_tokens=256,
+                    temperature=0.1,
+                    response_format={"type": "json_object"},
+                    stream=False,
+                )
+                grade_content = resp_grade.choices[0].message.content.strip()
+            except Exception as e:
+                console.print(f"[red]Quiz grading failed: {e}[/red]")
+                break
+
+            # Strip fences if present
+            if grade_content.startswith("```"):
+                grade_content = grade_content.split("\n", 1)[-1]
+                grade_content = grade_content.rsplit("```", 1)[0].strip()
+
+            try:
+                grade_data = json.loads(grade_content)
+            except json.JSONDecodeError:
+                console.print("[red]Grade JSON malformed. Try again later.[/red]")
+                break
+
+            grade_result = grade_data.get("result", "wrong")
+            feedback = grade_data.get("feedback", "")
+            explanation = grade_data.get("explanation", "")
+
+            console.print(f"[bold]{feedback}[/bold]")
+
+            if grade_result == "correct":
+                result = "correct"
+                break
+
+            if grade_result == "partial":
+                if quiz_attempt == 0:
+                    console.print(f"[dim]{explanation}[/dim]")
+                    console.print("[bold yellow]One more try.[/bold yellow]")
+                    quiz_attempt = 1
+                    continue
+                else:
+                    result = "partial"
+                    break
+
+            # wrong
+            if quiz_attempt == 0:
+                console.print(f"[dim]{explanation}[/dim]")
+                console.print("[bold yellow]One more try.[/bold yellow]")
+                quiz_attempt = 1
+                continue
+            else:
+                console.print(f"[dim]{explanation}[/dim]")
+                console.print(f"[bold red]The answer was:[/bold red] {quiz_data['answer']}")
+                result = "wrong"
+                break
+
+        # ── post‑quiz updates ──
+        if result == "correct":
+            if concept in shaky_concepts:
+                shaky_concepts.remove(concept)
+
+        if current_slot is not None:
+            slot_data = load_slot(current_slot)
+            if slot_data is not None:
+                slot_data["shaky_concepts"] = list(shaky_concepts)
+                write_slot(current_slot, slot_data)
+
+        return result
+
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
     thinking_user_override = False
@@ -364,7 +549,6 @@ def run():
                 continue
 
             elif command == "quiz":
-                # Pick concept
                 if args_str:
                     concept = args_str
                 else:
@@ -375,170 +559,7 @@ def run():
                         continue
                     concept = random.choice(shaky_concepts_list)
 
-                # Generate question via API
-                quiz_sys = (
-                    "You are a coding quiz generator. Given a concept, pick the best "
-                    "question format and generate one question. Rules:\n"
-                    "- behavior/scope/mutation/async/references → PREDICT: show code, "
-                    "ask what it prints or returns\n"
-                    "- syntax/patterns/comprehensions/decorators → PRODUCE: ask student "
-                    "to write code from scratch or complete a partial function\n"
-                    "- debugging-prone concepts like async/generators/recursion → DEBUG: "
-                    "show broken code, ask them to find and fix it\n"
-                    "- purely conceptual/definitional → EXPLAIN\n\n"
-                    "Respond ONLY with valid JSON, no fences, no preamble:\n"
-                    "{\n"
-                    "  \"format\": \"predict|produce|debug|explain\",\n"
-                    "  \"question\": \"<full question text with any code snippet>\",\n"
-                    "  \"answer\": \"<correct answer or solution>\",\n"
-                    "  \"hints\": [\"<hint 1>\", \"<hint 2>\"]\n"
-                    "}"
-                )
-                quiz_usr = f"Generate a quiz question for: {concept}"
-
-                try:
-                    resp = client.chat.completions.create(
-                        model="deepseek-v4-flash",
-                        messages=[
-                            {"role": "system", "content": quiz_sys},
-                            {"role": "user", "content": quiz_usr},
-                        ],
-                        max_tokens=1024,
-                        temperature=0.4,
-                        response_format={"type": "json_object"},
-                        stream=False,
-                    )
-                    content = resp.choices[0].message.content.strip()
-                except Exception as e:
-                    console.print(f"[red]Quiz generation failed: {e}[/red]")
-                    continue
-
-                # Parse JSON (strip fences if present)
-                if content.startswith("```"):
-                    content = content.split("\n", 1)[-1]
-                    content = content.rsplit("```", 1)[0].strip()
-
-                try:
-                    quiz_data = json.loads(content)
-                except json.JSONDecodeError:
-                    console.print("[red]Quiz JSON malformed. Try again later.[/red]")
-                    continue
-
-                # Display the question
-                console.print(
-                    f"[bold yellow]📝  Quiz: {concept}  [{quiz_data.get('format', '?')}][/bold yellow]"
-                )
-                console.print()
-                console.print(quiz_data.get("question", ""))
-                console.print()
-                console.print("[dim](answer below, or type /hint, or /skip to bail)[/dim]")
-
-                # ──────────────────────── quiz sub‑loop ────────────────────────
-                hint_count = 0
-                result = None
-                quiz_attempt = 0  # 1 = first try, 2 = second chance
-
-                while True:
-                    ans = get_input().strip()
-                    if not ans:
-                        continue
-
-                    if ans == "/hint":
-                        hints = quiz_data.get("hints", [])
-                        if hint_count < 2 and hint_count < len(hints):
-                            console.print(f"[dim]Hint {hint_count+1}:[/dim] {hints[hint_count]}")
-                            hint_count += 1
-                        else:
-                            console.print(f"[bold red]Here's the answer:[/bold red] {quiz_data['answer']}")
-                            result = "gave_up"
-                            break
-                        continue
-
-                    if ans == "/skip":
-                        result = "skipped"
-                        break
-
-                    # ── grade the answer ──
-                    student_answer = ans
-                    grade_msgs = [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are grading a coding quiz answer. Be strict but fair. "
-                                "Respond ONLY with valid JSON, no fences:\n"
-                                "{'result': 'correct|partial|wrong',\n"
-                                " 'feedback': '<one concise sentence>',\n"
-                                " 'explanation': '<brief explanation, only include if wrong or partial>'}"
-                            ),
-                        },
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Concept: {concept}\n"
-                                f"Question: {quiz_data.get('question', '')}\n"
-                                f"Expected answer: {quiz_data.get('answer', '')}\n"
-                                f"Student answered: {student_answer}"
-                            ),
-                        },
-                    ]
-
-                    try:
-                        resp_grade = client.chat.completions.create(
-                            model="deepseek-v4-flash",
-                            messages=grade_msgs,
-                            max_tokens=256,
-                            temperature=0.1,
-                            response_format={"type": "json_object"},
-                            stream=False,
-                        )
-                        grade_content = resp_grade.choices[0].message.content.strip()
-                    except Exception as e:
-                        console.print(f"[red]Quiz grading failed: {e}[/red]")
-                        break
-
-                    # Strip fences if present
-                    if grade_content.startswith("```"):
-                        grade_content = grade_content.split("\n", 1)[-1]
-                        grade_content = grade_content.rsplit("```", 1)[0].strip()
-
-                    try:
-                        grade_data = json.loads(grade_content)
-                    except json.JSONDecodeError:
-                        console.print("[red]Grade JSON malformed. Try again later.[/red]")
-                        break
-
-                    grade_result = grade_data.get("result", "wrong")
-                    feedback = grade_data.get("feedback", "")
-                    explanation = grade_data.get("explanation", "")
-
-                    console.print(f"[bold]{feedback}[/bold]")
-
-                    if grade_result == "correct":
-                        result = "correct"
-                        break
-
-                    if grade_result == "partial":
-                        if quiz_attempt == 0:
-                            console.print(f"[dim]{explanation}[/dim]")
-                            console.print("[bold yellow]One more try.[/bold yellow]")
-                            quiz_attempt = 1
-                            continue
-                        else:
-                            result = "partial"
-                            break
-
-                    # wrong
-                    if quiz_attempt == 0:
-                        console.print(f"[dim]{explanation}[/dim]")
-                        console.print("[bold yellow]One more try.[/bold yellow]")
-                        quiz_attempt = 1
-                        continue
-                    else:
-                        console.print(f"[dim]{explanation}[/dim]")
-                        console.print(f"[bold red]The answer was:[/bold red] {quiz_data['answer']}")
-                        result = "wrong"
-                        break
-
+                result = run_quiz(concept, client, model, shaky_concepts_list, cur_slot)
                 console.print(f"[bold]Quiz result: {result}[/bold]")
                 continue
 
