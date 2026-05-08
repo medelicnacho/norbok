@@ -1,4 +1,6 @@
 import os
+import openai
+from .ui import console
 
 
 def check_api_key():
@@ -31,9 +33,9 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
     else:
         base["temperature"] = 0.7
 
-    stream = client.chat.completions.create(**base)
     full = []
     interrupted = False
+    stream = None
 
     def _get_reasoning_content(delta):
         reasoning = getattr(delta, "reasoning_content", None)
@@ -44,19 +46,42 @@ def chat(client, messages, model, on_token, check_stop=None, on_thinking=None,
             return model_extra.get("reasoning_content")
         return None
 
-    for chunk in stream:
-        if check_stop and check_stop():
-            interrupted = True
-            break
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta
-        reasoning = _get_reasoning_content(delta)
-        if thinking and on_thinking and reasoning:
-            on_thinking(reasoning)
-            continue
-        content = delta.content
-        if content:
-            full.append(content)
-            on_token(content)
+    try:
+        stream = client.chat.completions.create(**base)
+
+        for chunk in stream:
+            if check_stop and check_stop():
+                interrupted = True
+                break
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            reasoning = _get_reasoning_content(delta)
+            if thinking and on_thinking and reasoning:
+                on_thinking(reasoning)
+                continue
+            content = delta.content
+            if content:
+                full.append(content)
+                on_token(content)
+    except openai.APIError as e:
+        console.print(f"[red]API error: {e}[/red]")
+        interrupted = True
+        full = []
+    except openai.APIConnectionError as e:
+        console.print(f"[red]Connection error: {e}[/red]")
+        interrupted = True
+        full = []
+    except openai.RateLimitError as e:
+        console.print(f"[red]Rate limit: {e}[/red]")
+        interrupted = True
+        full = []
+    except KeyboardInterrupt:
+        console.print("[yellow]Interrupted[/yellow]")
+        interrupted = True
+        full = []
+    finally:
+        if stream is not None:
+            stream.close()
+
     return "".join(full), interrupted
