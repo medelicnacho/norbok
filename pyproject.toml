@@ -4,9 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "norbok"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">3.9"
-dependencies = ["requests"]
+dependencies = [
+    "openai",
+    "rich",
+    "prompt-toolkit",
+    "pygments",
+]
 
 [project.scripts]
-norbok = "norbok_pkg.main:run"
+norbok = "norbok.main:run"
+
+[tool.setuptools.packages.find]
+include = ["norbok*"]
