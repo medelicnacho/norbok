@@ -28,6 +28,9 @@ def load_slot(n):
     try:
         with open(filepath, "r", encoding="utf-8") as fh:
             data = json.load(fh)
+        # Migrate older saves that lack curriculum_progress
+        if "curriculum_progress" not in data:
+            data["curriculum_progress"] = {}
         return data
     except (json.JSONDecodeError, OSError):
         return None
@@ -46,10 +49,13 @@ def write_slot(n, data):
 
     _ensure_dir()
 
-    allowed_keys = {"project_name", "coding_level", "summary", "shaky_concepts"}
+    allowed_keys = {"project_name", "coding_level", "summary", "shaky_concepts", "curriculum_progress"}
     record = {"slot_number": n}
     for key in allowed_keys:
-        record[key] = data.get(key, None)
+        record[key] = data.get(key, None if key != "curriculum_progress" else data.get(key, {}))
+    # Ensure curriculum_progress is a dict
+    if not isinstance(record["curriculum_progress"], dict):
+        record["curriculum_progress"] = {}
 
     filepath = os.path.join(SAVES_DIR, f"slot_{n}.json")
     with open(filepath, "w", encoding="utf-8") as fh:
