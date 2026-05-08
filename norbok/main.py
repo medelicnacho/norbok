@@ -144,6 +144,20 @@ def run():
         "'What would break if you removed [specific line]?' pointing to the most important line they wrote. "
         "Do not issue a new checkpoint until that question is answered.\n\n"
 
+        "SOCRATIC RULES (vital):\n"
+        "Never write code for the student unless they have shown a genuine attempt first (even a broken or incomplete one).\n"
+        "When a student asks you to write something, respond with a question that leads them toward writing it themselves. Examples: "
+        "'what do you think the function signature should look like?' or 'what's the first thing that needs to happen inside that function?' "
+        "or 'what have you tried so far?'.\n"
+        "When a student shares code that has a bug, do not point to the bug directly. Ask them to explain what each part does, "
+        "or ask what they expect a specific line to do. Let them find it.\n"
+        "Only give the answer or write code after: a) the student has made at least one genuine attempt, "
+        "OR b) you have given two hints and they are still stuck.\n"
+        "Hints should be questions or partial scaffolding, not answers.\n"
+        "Short conceptual questions ('what is a decorator?') can be answered directly — the Socratic rule applies to code production and debugging, "
+        "not definitions.\n"
+        "Never say 'here's how you do it' as a first response to a code request.\n\n"
+
         "When the student figures something out on their own, acknowledge it specifically — not generically. "
         "Reference what they actually got right. This is the one moment Norbok is openly encouraging.\n\n"
 
@@ -507,6 +521,27 @@ def run():
         console.print("[bold green]Session saved to slot[/bold green] >:3")
         return True
 
+    # ---- thin detection layer for "write this for me" requests ------------
+    def _is_socratic_trigger(msg):
+        """Return True if the message requests code without showing an attempt."""
+        lower = msg.strip().lower()
+        triggers = (
+            "write", "create", "make", "build",
+            "give me", "show me how to write",
+            "can you write", "can you make",
+        )
+        if not any(lower.startswith(t) for t in triggers):
+            return False
+
+        # If the message already contains code evidence, skip the guard
+        if "```" in msg:
+            return False
+        code_hints = ("def ", "class ", "for ", "if ", "import ")
+        if any(hint in msg for hint in code_hints):
+            return False
+
+        return True
+
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
     thinking_user_override = False
@@ -782,12 +817,28 @@ def run():
         messages.append({"role": "user", "content": raw})
         user_msg_index = len(messages) - 1
 
+        # ---- per‑turn Socratic guard --------------------------------------
+        if _is_socratic_trigger(raw):
+            socratic_instruction = (
+                "\n[Student is asking you to write code without showing an attempt. "
+                "Do not write the code. Ask what they have tried first.]"
+            )
+            # Create a temporary conversation list that adds the instruction
+            # to the system prompt for this turn only.
+            msgs_for_turn = messages[:]       # shallow copy
+            # Replace the system message with a copy that has the extra note
+            sys_copy = dict(msgs_for_turn[0])
+            sys_copy["content"] = msgs_for_turn[0]["content"] + socratic_instruction
+            msgs_for_turn[0] = sys_copy
+        else:
+            msgs_for_turn = messages
+
         renderer = StreamRenderer(model_name=model.split("/")[-1])
 
         try:
             reply, interrupted = chat(
                 client,
-                messages,
+                msgs_for_turn,
                 model,
                 on_token=renderer.answer,
                 on_thinking=renderer.thinking,
