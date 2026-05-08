@@ -390,19 +390,18 @@ def run():
                     curriculum_progress[concept] = "in_progress"
             # gave_up, skipped → no change
 
-            if current_slot is not None:
-                data = load_slot(current_slot)
-                if data:
-                    data["curriculum_progress"] = dict(curriculum_progress)
-                    write_slot(current_slot, data)
-
-        # Persist both SRS dicts if a slot is assigned
+        # Persist slot once, combining curriculum_progress, shaky, and learned
         if current_slot is not None:
-            data = load_slot(current_slot)
-            if data:
-                data["shaky_concepts"] = shaky_concepts
-                data["learned_concepts"] = learned_concepts
-                write_slot(current_slot, data)
+            slot_data = load_slot(current_slot, migrate=True)
+            if slot_data:
+                slot_data["shaky_concepts"] = shaky_concepts
+                slot_data["learned_concepts"] = learned_concepts
+                slot_data["curriculum_progress"] = dict(curriculum_progress)
+                write_slot(current_slot, slot_data)
+            else:
+                console.print(
+                    f"[red]Could not load slot {current_slot} to persist quiz results.[/red]"
+                )
 
         return result, shaky_concepts, learned_concepts
 
@@ -761,6 +760,10 @@ def run():
                         if data:
                             data["curriculum_progress"] = dict(curriculum_progress)
                             write_slot(cur_slot, data)
+                        else:
+                            console.print(
+                                f"[red]Could not load slot {cur_slot} to persist curriculum.[/red]"
+                            )
                 else:
                     # /curriculum — show full progress table
                     table = Table(title="Python Curriculum", border_style="green")
