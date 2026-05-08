@@ -4,10 +4,12 @@ import os
 import openai
 from rich.syntax import Syntax
 from rich.panel import Panel
+from rich.table import Table
+from rich.prompt import Prompt
 from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model, pick_session
-from .saves import load_slot, write_slot
+from .saves import load_slot, write_slot, list_slots
 
 THINKING_MODELS = {"deepseek-v4-pro"}
 
@@ -217,6 +219,37 @@ def run():
                         console.print("[red]Save error.[/red]")
                 continue
 
+            elif command == "saveas":
+                console.print("[bold cyan]Pick an empty slot to save into:[/bold cyan]")
+                slots_info = list_slots()
+                empty_slots = [entry for entry in slots_info if entry["status"] == "empty"]
+                if not empty_slots:
+                    console.print("[red]All slots are full. Clear a slot first.[/red]")
+                    continue
+
+                table = Table(title="Empty Slots", border_style="green")
+                table.add_column("Slot", style="bold cyan", justify="center")
+                table.add_column("Status", style="dim")
+                for entry in empty_slots:
+                    table.add_row(str(entry["slot"]), "empty")
+                console.print(table)
+
+                valid_choices = [str(entry["slot"]) for entry in empty_slots]
+                choice = Prompt.ask(
+                    "[bold green]Pick a slot number[/bold green]",
+                    choices=valid_choices,
+                    default=valid_choices[0],
+                )
+                cur_slot = int(choice)
+                console.print(f"[bold green]Session assigned to slot {cur_slot}.[/bold green]")
+                # Immediately save the current conversation into the chosen slot
+                console.print("[bold cyan]Saving current session...[/bold cyan]")
+                try:
+                    save_session()
+                except Exception:
+                    console.print("[red]Save failed. You can /save later.[/red]")
+                continue
+
             elif command == "switch":
                 model = pick_model()
                 if not thinking_user_override:
@@ -358,6 +391,30 @@ def run():
                 )
 
     # ---- autosave on exit -------------------------------------------------
+    if cur_slot is None:
+        try:
+            console.print("[bold cyan]No slot assigned yet. Pick one for autosave.[/bold cyan]")
+            slots_info = list_slots()
+            empty_slots = [e for e in slots_info if e["status"] == "empty"]
+            if not empty_slots:
+                console.print("[red]All slots full. Skipping autosave.[/red]")
+            else:
+                table = Table(title="Pick a slot to save", border_style="green")
+                table.add_column("Slot", style="bold cyan", justify="center")
+                for entry in empty_slots:
+                    table.add_row(str(entry["slot"]))
+                console.print(table)
+                valid_choices = [str(e["slot"]) for e in empty_slots]
+                choice = Prompt.ask(
+                    "[bold green]Enter slot number[/bold green]",
+                    choices=valid_choices,
+                    default=valid_choices[0],
+                )
+                cur_slot = int(choice)
+        except KeyboardInterrupt:
+            console.print("[red]Autosave cancelled.[/red]")
+            cur_slot = None
+
     if cur_slot is not None:
         console.print("[dim]Autosaving session...[/dim]")
         try:
