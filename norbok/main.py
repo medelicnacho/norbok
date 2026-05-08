@@ -700,6 +700,47 @@ def run():
                 console.print(f"[bold]Quiz result: {result}[/bold]")
                 continue
 
+            elif command == "progress":
+                today = date.today().isoformat()
+                due = due_concepts(shaky_concepts, today)
+
+                if not shaky_concepts and not learned_concepts:
+                    console.print("No concepts tracked yet. Start chatting and Norbok will track what trips you up. >:3")
+                    continue
+
+                if shaky_concepts:
+                    progress_table = Table(title="Memory Health", border_style="green")
+                    progress_table.add_column("Concept", style="bold cyan")
+                    progress_table.add_column("Interval", style="white")
+                    progress_table.add_column("Next Review", style="white")
+                    progress_table.add_column("Status", style="bold")
+
+                    for cid in sorted(shaky_concepts, key=lambda cid: shaky_concepts[cid]["next_review"]):
+                        entry = shaky_concepts[cid]
+                        interval = entry.get("interval_days", 0)
+                        next_review = entry.get("next_review", "")
+                        if next_review <= today:
+                            status = "[red]DUE NOW[/red]"
+                        else:
+                            days_until = (date.fromisoformat(next_review) - date.today()).days
+                            status = f"[dim]in {days_until} days[/dim]"
+                        progress_table.add_row(cid, f"{interval}d", next_review, status)
+
+                    console.print(progress_table)
+                    console.print(
+                        f"Due today: {len(due)}  |  Shaky: {len(shaky_concepts)}  |  Learned: {len(learned_concepts)}"
+                    )
+
+                if learned_concepts:
+                    learned_table = Table(title="Learned Concepts", border_style="green")
+                    learned_table.add_column("Concept", style="bold cyan")
+                    learned_table.add_column("Graduated", style="white")
+                    for cid, lentry in sorted(learned_concepts.items(), key=lambda x: x[1].get("graduated", "")):
+                        learned_table.add_row(cid, lentry.get("graduated", ""))
+                    console.print(learned_table)
+
+                continue
+
             elif command == "code":
                 console.print(
                     "[bold cyan]Code mode — type your code, then press Ctrl+D to send >:3[/bold cyan]"
