@@ -255,7 +255,11 @@ def run():
                     console.print(f"[dim]Hint {hint_count+1}:[/dim] {hints[hint_count]}")
                     hint_count += 1
                 else:
-                    console.print(f"[bold red]Here's the answer:[/bold red] {quiz_data['answer']}")
+                    answer_text = quiz_data.get("answer", "")
+                    if answer_text:
+                        console.print(f"[bold red]Here's the answer:[/bold red] {answer_text}")
+                    else:
+                        console.print("[bold red]Answer not available — moving on.[/bold red]")
                     result = "gave_up"
                     break
                 continue
@@ -341,7 +345,11 @@ def run():
                 continue
             else:
                 console.print(f"[dim]{explanation}[/dim]")
-                console.print(f"[bold red]The answer was:[/bold red] {quiz_data['answer']}")
+                answer_text = quiz_data.get("answer", "")
+                if answer_text:
+                    console.print(f"[bold red]The answer was:[/bold red] {answer_text}")
+                else:
+                    console.print("[bold red]Answer not available — moving on.[/bold red]")
                 result = "wrong"
                 break
 
