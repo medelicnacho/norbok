@@ -229,7 +229,11 @@ def run():
         quiz_attempt = 0
 
         while True:
-            ans = get_input().strip()
+            try:
+                ans = get_input().strip()
+            except (KeyboardInterrupt, EOFError):
+                result = "skipped"
+                break
             if not ans:
                 continue
 
@@ -394,7 +398,10 @@ def run():
             console.print(
                 f"{len(due)} concept(s) due for review. Quick quiz on {n_quiz}? (y/N)"
             )
-            ans = get_input().strip().lower()
+            try:
+                ans = get_input().strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                ans = ""
             if ans in ("y", "yes"):
                 for concept in due[:n_quiz]:
                     result, shaky_concepts, learned_concepts = run_quiz(

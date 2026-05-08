@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -43,6 +44,7 @@ def _load_env_file():
 def _save_key_to_env_file(key: str):
     """Write or update DEEPSEEK_API_KEY in the local .env file."""
     _ensure_data_dir()
+
     lines = []
     replaced = False
     if os.path.isfile(ENV_FILE):
@@ -58,8 +60,22 @@ def _save_key_to_env_file(key: str):
         lines = new_lines
     if not replaced:
         lines.append(f"DEEPSEEK_API_KEY={key}\n")
-    with open(ENV_FILE, "w", encoding="utf-8") as fh:
-        fh.writelines(lines)
+
+    parent_dir = Path(ENV_FILE).parent
+    fd, tmp_path = tempfile.mkstemp(
+        suffix=".env", prefix=".norbok", dir=str(parent_dir)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.writelines(lines)
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, ENV_FILE)
+    except Exception:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def run_onboarding():

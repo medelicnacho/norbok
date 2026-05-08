@@ -76,6 +76,10 @@ def load_slot(n):
                 for concept in old_list
                 if isinstance(concept, str)
             }
+            try:
+                write_slot(n, data)
+            except Exception:
+                pass
 
         return data
     except json.JSONDecodeError:

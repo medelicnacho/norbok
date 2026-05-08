@@ -5,7 +5,7 @@ GRADUATION_INTERVAL = 30   # days until a concept is considered learned
 MAX_INTERVAL = 60          # cap on interval growth
 
 
-def make_entry(concept_id, today=None):
+def make_entry(today=None):
     """Return a new concept entry dict."""
     today_iso = today if today else date.today().isoformat()
     return {
@@ -22,7 +22,7 @@ def add_concept(shaky, concept_id, today=None):
         # Already present – return a shallow copy so input isn't touched
         return shaky.copy()
     new_shaky = shaky.copy()
-    new_shaky[concept_id] = make_entry(concept_id, today)
+    new_shaky[concept_id] = make_entry(today)
     return new_shaky
 
 
