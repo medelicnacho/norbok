@@ -18,11 +18,9 @@ def make_entry(today=None):
 
 def add_concept(shaky, concept_id, today=None):
     """Add concept_id to shaky if not present; return non‑mutated updated dict."""
-    if concept_id in shaky:
-        # Already present – return a shallow copy so input isn't touched
-        return shaky.copy()
-    new_shaky = shaky.copy()
-    new_shaky[concept_id] = make_entry(today)
+    new_shaky = copy.deepcopy(shaky)
+    if concept_id not in new_shaky:
+        new_shaky[concept_id] = make_entry(today)
     return new_shaky
 
 
@@ -37,7 +35,7 @@ def record_result(shaky, concept_id, result, today=None):
     """
     # Ignore invalid / None results – do not touch history at all.
     if result not in VALID_RESULTS:
-        return shaky.copy()
+        return copy.deepcopy(shaky)
 
     today_iso = today if today else date.today().isoformat()
     shaky_copy = copy.deepcopy(shaky)
