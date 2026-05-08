@@ -178,12 +178,26 @@ def get_code_input():
     """
     Open a multiline code editor with Python syntax highlighting.
     Press Ctrl+D to submit.
+    Tab inserts 4 spaces; Enter preserves current indentation.
     """
     bindings = KeyBindings()
 
     @bindings.add('c-d')
     def submit(event):
         event.app.exit(result=event.app.current_buffer.text)
+
+    @bindings.add('tab')
+    def insert_tab(event):
+        event.current_buffer.insert_text('    ')
+
+    @bindings.add('enter')
+    def autoindent_enter(event):
+        buffer = event.current_buffer
+        # current line (entire, regardless of cursor position)
+        current_line = buffer.document.current_line
+        # count leading spaces for indentation
+        indent = ' ' * (len(current_line) - len(current_line.lstrip(' ')))
+        buffer.insert_text('\n' + indent)
 
     return ptk_prompt(
         message=[("class:bold", "code: ")],
