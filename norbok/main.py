@@ -1,3 +1,4 @@
+import json
 import signal
 import os
 import openai
@@ -6,7 +7,7 @@ from rich.panel import Panel
 from .chat import chat, check_api_key
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model, pick_session
-from .saves import load_slot
+from .saves import load_slot, write_slot
 
 THINKING_MODELS = {"deepseek-v4-pro"}
 
@@ -122,6 +123,59 @@ def run():
 
     print_welcome()
 
+    # ---- extraction & autosave helper (defined inside run) ------------
+    def _extract_and_save():
+        """Extract session info from the conversation and persist to cur_slot."""
+        if not messages:
+            console.print("[red]No conversation to extract from.[/red]")
+            return False
+
+        # Build a trimmed text of the latest exchanges
+        conv_lines = []
+        for msg in messages[1:]:               # skip system prompt
+            role = msg["role"]
+            content = msg["content"]
+            if role == "user":
+                conv_lines.append(f"Student: {content}")
+            elif role == "assistant":
+                conv_lines.append(f"Norbok: {content}")
+        conv_text = "\n".join(conv_lines)[-4000:]
+
+        extraction_msgs = [
+            {"role": "system", "content": "You are a helpful assistant that extracts structured data from a conversation. Only output valid JSON."},
+            {"role": "user", "content": (
+                "Based on the following conversation between a student and a coding mentor, output a JSON object with these keys:\n"
+                "project_name (string), coding_level (string), summary (string), shaky_concepts (list of strings).\n"
+                "coding_level should be one of beginner, intermediate, advanced.\n"
+                "summary should be a one-paragraph recap of what was covered.\n"
+                "shaky_concepts are concepts the student is struggling with.\n\n"
+                "Conversation:\n" + conv_text + "\n\n"
+                "Respond ONLY with valid JSON and nothing else."
+            )}
+        ]
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=extraction_msgs,
+                max_tokens=512,
+                temperature=0,
+                stream=False,
+            )
+            content = resp.choices[0].message.content.strip()
+        except Exception as e:
+            console.print(f"[red]Extraction API call failed: {e}[/red]")
+            return False
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
+            return False
+
+        write_slot(cur_slot, data)
+        console.print("[bold green]Session saved to slot[/bold green] >:3")
+        return True
+
     # Track whether we've ever trimmed the conversation history
     has_trimmed = False
     thinking_user_override = False
@@ -148,6 +202,19 @@ def run():
             if command in ("exit", "quit"):
                 console.print("[bold green]peace bro >:3[/bold green]")
                 break
+
+            elif command == "save":
+                if cur_slot is None:
+                    console.print("[red]No session slot selected. Start with an existing slot first.[/red]")
+                else:
+                    console.print("[bold cyan]Saving session...[/bold cyan]")
+                    try:
+                        success = _extract_and_save()
+                        if not success:
+                            console.print("[red]Save failed. You can try again later.[/red]")
+                    except Exception:
+                        console.print("[red]Save error.[/red]")
+                continue
 
             elif command == "switch":
                 model = pick_model()
@@ -279,5 +346,14 @@ def run():
                     "[dim]Conversation history trimmed to stay within token limit. "
                     "Norbok will still remember the key points >:3[/dim]"
                 )
+
+    # ---- autosave on exit -------------------------------------------------
+    if cur_slot is not None:
+        console.print("[dim]Autosaving session...[/dim]")
+        try:
+            if not _extract_and_save():
+                console.print("[red]Autosave failed. You can still use /save later.[/red]")
+        except Exception as e:
+            console.print(f"[red]Autosave error: {e}[/red]")
 
     signal.signal(signal.SIGINT, original_sigint)
