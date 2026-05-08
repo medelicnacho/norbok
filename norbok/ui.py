@@ -174,11 +174,13 @@ def print_welcome():
     console.print(Panel("Norbok is ready to teach >:3", border_style="green"))
 
 
-def get_input():
+def get_input(placeholder=None):
+    if placeholder is None:
+        placeholder = COMMANDS
     return ptk_prompt(
         message=[("class:bold", "student: ")],
         style=PTK_STYLE,
-        placeholder=[("class:placeholder", COMMANDS)],
+        placeholder=[("class:placeholder", placeholder)],
     )
 
 

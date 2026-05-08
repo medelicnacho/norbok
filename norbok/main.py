@@ -36,8 +36,8 @@ _IS_SOCRATIC_RE = re.compile(
 def run():
     try:
         run_onboarding()
-    except Exception as e:
-        console.print(f"[yellow]Onboarding failed ({e}), falling back to manual setup.[/yellow]")
+    except Exception:
+        pass
     check_api_key()
     model = pick_model()
 
@@ -242,7 +242,7 @@ def run():
 
         while True:
             try:
-                ans = get_input().strip()
+                ans = get_input(placeholder="Answer (or /hint, /skip)").strip()
             except (KeyboardInterrupt, EOFError):
                 result = "skipped"
                 break
@@ -953,7 +953,7 @@ def run():
         else:
             msgs_for_turn = messages
 
-        renderer = StreamRenderer(model_name=model.split("/")[-1])
+        renderer = StreamRenderer(model_name=model)
 
         reply, interrupted = _chat_turn(
             client, msgs_for_turn, model, use_thinking, renderer,
@@ -994,7 +994,7 @@ def run():
                 messages.append({"role": "user", "content": fenced})
 
                 # Process the checkpoint submission
-                renderer_check = StreamRenderer(model_name=model.split("/")[-1])
+                renderer_check = StreamRenderer(model_name=model)
                 reply_check, _ = _chat_turn(
                     client, messages, model, use_thinking, renderer_check,
                     lambda: stop_generation, len(messages)-1,
