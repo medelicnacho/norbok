@@ -36,6 +36,8 @@ class StreamRenderer:
         # prose accumulation for Markdown rendering
         self.prose_buffer = []     # list of prose tokens
 
+        self.had_code_block = False
+
     def thinking(self, token):
         if not self.in_thinking:
             console.print("\n🧠 thinking...", style="bold magenta")
@@ -52,6 +54,9 @@ class StreamRenderer:
             self.in_answer = True
         self.text_buffer += token
         self._process()
+        # Stream plain text live for non‑code tokens.
+        if not self.in_code:
+            console.print(token, end="", markup=False)
 
     # ── code‑card detection and rendering ──────────────────────────────────
     def _process(self):
@@ -127,6 +132,7 @@ class StreamRenderer:
         console.print(md)
 
     def _card(self):
+        self.had_code_block = True
         code = "".join(self.code_buffer)
         lang = self.code_lang or "text"
         console.print()   # blank line before the card
@@ -157,8 +163,10 @@ class StreamRenderer:
                 self.prose_buffer.append(self.text_buffer)
                 self.text_buffer = ""
 
-        # Flush any remaining prose (including possible trailing text)
-        self._flush_prose()
+        # Only re‑render the buffered prose as Markdown if at least one code
+        # block was shown; otherwise the live‑streamed plain text suffices.
+        if self.had_code_block:
+            self._flush_prose()
         console.print()
 
 
