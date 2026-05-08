@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import date
 
 SAVES_DIR = "saves"
 NUM_SLOTS = 5
@@ -15,7 +16,8 @@ def load_slot(n):
     Load save data for slot n (1‑5).
 
     Returns a dict with keys:
-        slot_number, project_name, coding_level, summary, shaky_concepts
+        slot_number, project_name, coding_level, summary, shaky_concepts,
+        learned_concepts, curriculum_progress
     or None if the slot does not exist or contains corrupt data.
     """
     if n < 1 or n > NUM_SLOTS:
@@ -28,9 +30,30 @@ def load_slot(n):
     try:
         with open(filepath, "r", encoding="utf-8") as fh:
             data = json.load(fh)
+
         # Migrate older saves that lack curriculum_progress
         if "curriculum_progress" not in data:
             data["curriculum_progress"] = {}
+
+        # Migrate missing learned_concepts
+        if "learned_concepts" not in data:
+            data["learned_concepts"] = {}
+
+        # Migrate shaky_concepts from old list format to SRS dict format
+        if isinstance(data.get("shaky_concepts"), list):
+            today_iso = date.today().isoformat()
+            old_list = data["shaky_concepts"]
+            data["shaky_concepts"] = {
+                concept: {
+                    "added": today_iso,
+                    "interval_days": 1,
+                    "next_review": today_iso,
+                    "history": []
+                }
+                for concept in old_list
+                if isinstance(concept, str)
+            }
+
         return data
     except (json.JSONDecodeError, OSError):
         return None
@@ -41,7 +64,8 @@ def write_slot(n, data):
     Write save data to slot n (1‑5).
 
     *data* must be a dict containing at least some of the keys
-    project_name, coding_level, summary, shaky_concepts.
+    project_name, coding_level, summary, shaky_concepts, learned_concepts,
+    curriculum_progress.
     The slot_number field is automatically set to n.
     """
     if n < 1 or n > NUM_SLOTS:
@@ -49,12 +73,26 @@ def write_slot(n, data):
 
     _ensure_dir()
 
-    allowed_keys = {"project_name", "coding_level", "summary", "shaky_concepts", "curriculum_progress"}
+    allowed_keys = {
+        "project_name",
+        "coding_level",
+        "summary",
+        "shaky_concepts",
+        "learned_concepts",
+        "curriculum_progress",
+    }
     record = {"slot_number": n}
     for key in allowed_keys:
-        record[key] = data.get(key, None if key != "curriculum_progress" else data.get(key, {}))
-    # Ensure curriculum_progress is a dict
-    if not isinstance(record["curriculum_progress"], dict):
+        # Default to {} for the dict-type keys, None for text keys
+        if key in ("learned_concepts", "curriculum_progress"):
+            record[key] = data.get(key, {})
+        else:
+            record[key] = data.get(key, None)
+
+    # Ensure dict-type fields are actually dicts
+    if not isinstance(record.get("learned_concepts"), dict):
+        record["learned_concepts"] = {}
+    if not isinstance(record.get("curriculum_progress"), dict):
         record["curriculum_progress"] = {}
 
     filepath = os.path.join(SAVES_DIR, f"slot_{n}.json")
