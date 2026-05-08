@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt
 from .chat import chat, check_api_key
-from .srs import record_result, graduate_concepts, add_concept
+from .srs import record_result, graduate_concepts, add_concept, due_concepts
 from .ui import print_welcome, get_input, get_code_input, StreamRenderer, console
 from .models import pick_model, pick_session
 from .saves import load_slot, write_slot, list_slots, delete_slot
@@ -178,6 +178,31 @@ def run():
     if curriculum_progress or shaky_concepts:
         pct = compute_percent(curriculum_progress)
         console.print(f"Python level: {pct}% — {len(shaky_concepts)} shaky concept(s)")
+
+    # ── session‑start quiz review ──
+    if shaky_concepts:
+        today = date.today().isoformat()
+        due = due_concepts(shaky_concepts, today)
+
+        if not due:
+            console.print("No concepts due for review today. >:3", style="dim green")
+        else:
+            n_quiz = min(len(due), 2)
+            console.print(
+                f"{len(due)} concept(s) due for review. Quick quiz on {n_quiz}? (y/N)"
+            )
+            ans = get_input().strip().lower()
+            if ans in ("y", "yes"):
+                for concept in due[:n_quiz]:
+                    run_quiz(concept, client, model,
+                             shaky_concepts, learned_concepts, cur_slot)
+                    if cur_slot is not None:
+                        slot_data = load_slot(cur_slot)
+                        if slot_data:
+                            shaky_concepts = slot_data.get("shaky_concepts", shaky_concepts)
+                            learned_concepts = slot_data.get("learned_concepts", learned_concepts)
+            else:
+                console.print("Skipping review for now. >:3", style="dim")
 
     # ---- save_session: extract conversation info & persist to cur_slot ----
     def save_session():
