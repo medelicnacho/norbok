@@ -801,7 +801,13 @@ def run():
                             "[yellow]No shaky concepts yet. Keep chatting and I'll track what trips you up. >:3[/yellow]"
                         )
                         continue
-                    concept = random.choice(list(shaky_concepts.keys()))
+                    # prefer a concept that is due for review
+                    today_iso = date.today().isoformat()
+                    due = due_concepts(shaky_concepts, today_iso)
+                    if due:
+                        concept = random.choice(due)
+                    else:
+                        concept = random.choice(list(shaky_concepts.keys()))
 
                 result, shaky_concepts, learned_concepts = run_quiz(
                     concept, client, model, shaky_concepts, learned_concepts, cur_slot
