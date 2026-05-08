@@ -504,13 +504,10 @@ def run():
             content = content.split("\n", 1)[-1]
             content = content.rsplit("```", 1)[0].strip()
 
-        print(f"[autosave debug] raw output:\n{content!r}\n---")
-
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
             console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
-            print(f"[debug] raw was: {content[:800]!r}")
             return False
 
         # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
@@ -568,7 +565,6 @@ def run():
             parts = raw[1:].split(maxsplit=1)
             command = parts[0].strip().lower()
             args_str = parts[1].strip() if len(parts) > 1 else None
-            print(f"[debug] command: {command!r}")
 
             if command in ("exit", "quit"):
                 console.print("[bold green]peace bro >:3[/bold green]")
