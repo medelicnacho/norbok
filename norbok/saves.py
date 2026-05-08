@@ -73,3 +73,19 @@ def list_slots():
         else:
             result.append({"slot": n, "status": "empty", "data": None})
     return result
+
+
+def delete_slot(n):
+    """
+    Delete the save file for slot n (1‑5).
+
+    Returns True if the file existed and was removed, False otherwise.
+    """
+    if n < 1 or n > NUM_SLOTS:
+        raise ValueError(f"Slot number must be between 1 and {NUM_SLOTS} (inclusive)")
+
+    filepath = os.path.join(SAVES_DIR, f"slot_{n}.json")
+    if os.path.isfile(filepath):
+        os.remove(filepath)
+        return True
+    return False
