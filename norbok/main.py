@@ -423,16 +423,32 @@ def run():
             else:
                 console.print("Skipping review for now. >:3", style="dim")
 
-    # ---- save_session: extract conversation info & persist to cur_slot ----
-    def save_session():
-        """Extract session info from the conversation and persist to cur_slot."""
-        if not messages:
-            console.print("[red]No conversation to extract from.[/red]")
-            return False
+    # ---- save_local: persist local SRS state without API calls ----
+    def save_local():
+        """Write shaky_concepts, learned_concepts, curriculum_progress, known_os to current slot."""
+        if cur_slot is None:
+            raise RuntimeError("No slot selected")
+        slot = load_slot(cur_slot)
+        if slot is None:
+            slot = {}
+        slot["shaky_concepts"] = shaky_concepts
+        slot["learned_concepts"] = learned_concepts
+        slot["curriculum_progress"] = dict(curriculum_progress)
+        slot["known_os"] = known_os
+        write_slot(cur_slot, slot)
 
-        # Build a trimmed text of the latest exchanges
+    # ---- enrich_metadata: LLM extraction for project_name / coding_level / summary ----
+    def enrich_metadata():
+        """Call the LLM to fill project_name, coding_level, summary for the current slot."""
+        if not messages:
+            console.print("[red]No conversation; cannot enrich.[/red]")
+            return
+        if cur_slot is None:
+            console.print("[red]No slot; cannot enrich.[/red]")
+            return
+
         conv_lines = []
-        for msg in messages[1:]:               # skip system prompt
+        for msg in messages[1:]:
             role = msg["role"]
             content = msg["content"]
             if role == "user":
@@ -441,7 +457,6 @@ def run():
                 conv_lines.append(f"Norbok: {content}")
         full_text = "\n".join(conv_lines)
 
-        # Truncate wisely: keep first 1500 chars and last 4000 chars if total > 5500
         if len(full_text) <= 5500:
             conv_text = full_text
         else:
@@ -476,29 +491,31 @@ def run():
             )
             content = resp.choices[0].message.content.strip()
         except Exception as e:
-            console.print(f"[red]Extraction API call failed: {e}[/red]")
-            return False
+            console.print(f"[red]Enrichment API call failed: {e}[/red]")
+            return
 
-        # Strip markdown code fences if the model wrapped the JSON in them
         if content.startswith("```"):
             content = content.split("\n", 1)[-1]
             content = content.rsplit("```", 1)[0].strip()
 
         try:
-            data = json.loads(content)
+            extraction = json.loads(content)
         except json.JSONDecodeError:
-            console.print("[red]Extracted content not valid JSON. Please try again later.[/red]")
-            return False
+            console.print("[red]Enrichment JSON malformed. Please try again later.[/red]")
+            return
 
-        # Write in‑memory SRS state (shaky + learned) instead of LLM‑extracted list
-        data["shaky_concepts"] = shaky_concepts
-        data["learned_concepts"] = learned_concepts
-        # Preserve curriculum progress and OS
-        data["curriculum_progress"] = dict(curriculum_progress)
-        data["known_os"] = known_os
-        write_slot(cur_slot, data)
-        console.print("[bold green]Session saved to slot[/bold green] >:3")
-        return True
+        slot = load_slot(cur_slot)
+        if slot is None:
+            slot = {}
+
+        # Only overwrite empty values with non-empty extractions
+        for key in ("project_name", "coding_level", "summary"):
+            existing = slot.get(key, "")
+            if not existing and extraction.get(key):
+                slot[key] = extraction[key]
+
+        write_slot(cur_slot, slot)
+        console.print("[bold green]Metadata enriched >:3[/bold green]")
 
     # ---- thin detection layer for "write this for me" requests ------------
     def _is_socratic_trigger(msg):
@@ -590,9 +607,10 @@ def run():
                 else:
                     console.print("[bold cyan]Saving session...[/bold cyan]")
                     try:
-                        success = save_session()
-                        if not success:
-                            console.print("[red]Save failed. You can try again later.[/red]")
+                        save_local()
+                        if args_str == "--enrich":
+                            enrich_metadata()
+                        console.print("[bold green]Session saved >:3[/bold green]")
                     except Exception:
                         console.print("[red]Save error.[/red]")
                 continue
@@ -624,9 +642,16 @@ def run():
                 # Immediately save the current conversation into the chosen slot
                 console.print("[bold cyan]Saving current session...[/bold cyan]")
                 try:
-                    save_session()
+                    save_local()
                 except Exception:
                     console.print("[red]Save failed. You can /save later.[/red]")
+                else:
+                    try:
+                        enrich_metadata()
+                    except Exception:
+                        console.print("[yellow]Couldn't enrich metadata, but your basic session is saved.[/yellow]")
+                    else:
+                        console.print("[bold green]Session saved and enriched >:3[/bold green]")
                 continue
 
             elif command == "switch":
@@ -929,7 +954,7 @@ def run():
         if cur_slot is not None and turn_count % 10 == 0:
             console.print("[dim]Periodic autosave...[/dim]")
             try:
-                save_session()
+                save_local()
             except Exception:
                 console.print("[red]Periodic autosave failed.[/red]")
 
@@ -951,6 +976,7 @@ def run():
                 )
 
     # ---- autosave on exit -------------------------------------------------
+    need_enrich = False
     if cur_slot is None:
         try:
             console.print("[bold cyan]No slot assigned yet. Pick one for autosave.[/bold cyan]")
@@ -971,6 +997,7 @@ def run():
                     default=valid_choices[0],
                 )
                 cur_slot = int(choice)
+                need_enrich = True
         except KeyboardInterrupt:
             console.print("[red]Autosave cancelled.[/red]")
             cur_slot = None
@@ -978,8 +1005,13 @@ def run():
     if cur_slot is not None:
         console.print("[dim]Autosaving session...[/dim]")
         try:
-            if not save_session():
-                console.print("[red]Autosave failed. You can still use /save later.[/red]")
+            save_local()
+            if need_enrich:
+                try:
+                    enrich_metadata()
+                except Exception:
+                    console.print("[yellow]Could not enrich metadata, but your basic session is saved.[/yellow]")
+            console.print("[bold green]Autosave complete >:3[/bold green]")
         except Exception as e:
             console.print(f"[red]Autosave error: {e}[/red]")
 
